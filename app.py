@@ -1,13 +1,12 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-import anthropic
-import datetime
+from anthropic import Anthropic, Client
+import os
 
-# Initialize Anthropic client (assuming API key is stored in environment variable)
-anthropic_api_key = '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'
-anthropic_client = anthropic.Client(api_key=anthropic_api_key)
-st.write(anthropic_client)
+# Initialize Anthropic client
+anthropic_api_key = os.getenv('ANTHROPIC_API_KEY', 'YOUR_ANTHROPIC_API_KEY')
+anthropic_client = Client(api_key=anthropic_api_key)
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
@@ -95,4 +94,3 @@ if company_ticker:
     for ticker in tickers:
         stock = yf.Ticker(ticker)
         st.write(f"{ticker} - Market Cap: {stock.info['marketCap']}, P/E Ratio: {stock.info['trailingPE']}, EPS: {stock.info['trailingEps']}, Dividend Yield: {stock.info['dividendYield']}")
-
