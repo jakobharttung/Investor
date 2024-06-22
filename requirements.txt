@@ -7,4 +7,4 @@ openpyxl
 pygwalker
 yfinance
 plotly
-anthropic
+openai
