@@ -5,7 +5,7 @@ from anthropic import Anthropic, Client
 import os
 
 # Initialize Anthropic client
-anthropic_api_key = os.getenv('ANTHROPIC_API_KEY', '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')
+anthropic_api_key = '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'
 anthropic_client = Client(api_key=anthropic_api_key)
 
 # Helper function to get similar companies
