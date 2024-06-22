@@ -13,16 +13,15 @@ client = OpenAI(
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-    response = client.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a financial analyst."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=max_tokens,
-        n=1,
-        stop=None,
-        temperature=0.7,
+   
+    chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "Given the stock ticker MSFT, list four other companies in the same industry.",
+        }
+    ],
+    model="gpt-3.5-turbo",
     )
     return response.choices[0].message['content'].strip()
 
