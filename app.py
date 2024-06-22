@@ -14,7 +14,7 @@ if openai.api_key == 'YOUR_OPENAI_API_KEY':
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-    response = openai.ChatCompletion.create(
+    response = client.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a financial analyst."},
