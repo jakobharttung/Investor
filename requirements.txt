@@ -1,10 +1,7 @@
-utifulsoups4altair
-pandas
+andas
 matplotlib
-seaborn
 streamlit
 openpyxl
-pygwalker
 yfinance
 plotly
 openai
