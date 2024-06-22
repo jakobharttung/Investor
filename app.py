@@ -14,15 +14,15 @@ if openai.api_key == 'YOUR_OPENAI_API_KEY':
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-    response = openai.Completion.create(
-        engine="text-davinci-003",
-        prompt=prompt,
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "system", "content": "You are a financial analyst."}, {"role": "user", "content": prompt}],
         max_tokens=max_tokens,
         n=1,
         stop=None,
         temperature=0.7,
     )
-    return response.choices[0].text.strip()
+    return response.choices[0].message['content'].strip()
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
