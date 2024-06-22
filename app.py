@@ -1,31 +1,34 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-from anthropic import Client
+import openai
+from bs4 import BeautifulSoup
 import os
+import requests
 
-# Initialize Anthropic client
-anthropic_api_key = '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'
+# Initialize OpenAI client
+openai.api_key = os.getenv('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY')
+if openai.api_key == 'YOUR_OPENAI_API_KEY':
+    st.warning("Please replace 'YOUR_OPENAI_API_KEY' with your actual OpenAI API key or set the 'OPENAI_API_KEY' environment variable.")
+    st.stop()
 
-# Debugging: Display API key (Be careful to not expose it publicly)
-st.write("Using API Key:", anthropic_api_key[:4] + "..." + anthropic_api_key[-4:])  # Show only the first and last 4 characters
-
-anthropic_client = Client(api_key=anthropic_api_key)
+# Helper function to call OpenAI API
+def call_openai(prompt, max_tokens=100):
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=prompt,
+        max_tokens=max_tokens,
+        n=1,
+        stop=None,
+        temperature=0.7,
+    )
+    return response.choices[0].text.strip()
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
     prompt = f"Given the stock ticker {ticker}, list four other companies in the same industry."
-    try:
-        response = anthropic_client.completions.create(
-            model="claude-v1",
-            prompt=prompt,
-            max_tokens_to_sample=50,
-            stop_sequences=["\n"]
-        )
-        return response['completion'].strip().split(',')
-    except Exception as e:
-        st.error(f"Error fetching similar companies: {e}")
-        return []
+    response = call_openai(prompt, max_tokens=50)
+    return response.split(',')
 
 # Helper function to get stock data
 def get_stock_data(ticker, period='5y'):
@@ -34,33 +37,22 @@ def get_stock_data(ticker, period='5y'):
 
 # Helper function to get financials and news sentiment analysis
 def get_sentiment_and_analysis(ticker):
-    prompt = f"Given the financials and recent news of the company with the stock ticker {ticker}, provide a sentiment analysis, an analyst consensus, an industry analysis, and an overall investment perspective."
-    try:
-        response = anthropic_client.completions.create(
-            model="claude-v1",
-            prompt=prompt,
-            max_tokens_to_sample=300,
-            stop_sequences=["\n"]
-        )
-        return response['completion'].strip()
-    except Exception as e:
-        st.error(f"Error fetching sentiment analysis for {ticker}: {e}")
-        return ""
+    stock = yf.Ticker(ticker)
+    financials = stock.financials.to_dict()
+    news_url = f"https://finance.yahoo.com/quote/{ticker}/news?p={ticker}"
+    news_response = requests.get(news_url)
+    soup = BeautifulSoup(news_response.content, 'html.parser')
+    headlines = [item.get_text() for item in soup.find_all('h3')]
+
+    prompt = f"Analyze the following financial data and news headlines for sentiment and provide an overall analysis:\n\nFinancials: {financials}\n\nHeadlines: {headlines}"
+    response = call_openai(prompt, max_tokens=300)
+    return response
 
 # Helper function to get investment recommendation
 def get_investment_recommendation(ticker, analysis_data):
     prompt = f"Based on the following analysis data:\n\n{analysis_data}\n\nProvide an investment recommendation for the company with the stock ticker {ticker} (Buy, Hold, or Sell) with a short explanation."
-    try:
-        response = anthropic_client.completions.create(
-            model="claude-v1",
-            prompt=prompt,
-            max_tokens_to_sample=100,
-            stop_sequences=["\n"]
-        )
-        return response['completion'].strip()
-    except Exception as e:
-        st.error(f"Error fetching investment recommendation for {ticker}: {e}")
-        return ""
+    response = call_openai(prompt, max_tokens=100)
+    return response
 
 # Streamlit app
 st.title('Investor Analyst App')
