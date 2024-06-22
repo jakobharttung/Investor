@@ -1,4 +1,4 @@
-altair
+utifulsoups4altair
 pandas
 matplotlib
 seaborn
@@ -8,3 +8,4 @@ pygwalker
 yfinance
 plotly
 openai
+beautifulsoup4
