@@ -5,8 +5,9 @@ import anthropic
 import datetime
 
 # Initialize Anthropic client (assuming API key is stored in environment variable)
-anthropic_api_key = 'YOUR_ANTHROPIC_API_KEY'
+anthropic_api_key = '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'
 anthropic_client = anthropic.Client(api_key=anthropic_api_key)
+st.write(anthropic_client)
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
