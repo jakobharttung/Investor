@@ -5,18 +5,19 @@ import anthropic
 import datetime
 
 # Initialize Anthropic client (assuming API key is stored in environment variable)
-anthropic_api_key = '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'
-anthropic_client = anthropic.Anthropic(api_key=anthropic_api_key)
+anthropic_api_key = 'YOUR_ANTHROPIC_API_KEY'
+anthropic_client = anthropic.Client(api_key=anthropic_api_key)
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
     prompt = f"Given the stock ticker {ticker}, list four other companies in the same industry."
-    response = anthropic_client.complete(
+    response = anthropic_client.completions.create(
+        model="claude-v1",
         prompt=prompt,
-        max_tokens=50,
-        stop=["\n"]
+        max_tokens_to_sample=50,
+        stop_sequences=["\n"]
     )
-    return response['text'].strip().split(',')
+    return response['completion'].strip().split(',')
 
 # Helper function to get stock data
 def get_stock_data(ticker, period='5y'):
@@ -26,22 +27,24 @@ def get_stock_data(ticker, period='5y'):
 # Helper function to get financials and news sentiment analysis
 def get_sentiment_and_analysis(ticker):
     prompt = f"Given the financials and recent news of the company with the stock ticker {ticker}, provide a sentiment analysis, an analyst consensus, an industry analysis, and an overall investment perspective."
-    response = anthropic_client.complete(
+    response = anthropic_client.completions.create(
+        model="claude-v1",
         prompt=prompt,
-        max_tokens=300,
-        stop=["\n"]
+        max_tokens_to_sample=300,
+        stop_sequences=["\n"]
     )
-    return response['text'].strip()
+    return response['completion'].strip()
 
 # Helper function to get investment recommendation
 def get_investment_recommendation(ticker, analysis_data):
     prompt = f"Based on the following analysis data:\n\n{analysis_data}\n\nProvide an investment recommendation for the company with the stock ticker {ticker} (Buy, Hold, or Sell) with a short explanation."
-    response = anthropic_client.complete(
+    response = anthropic_client.completions.create(
+        model="claude-v1",
         prompt=prompt,
-        max_tokens=100,
-        stop=["\n"]
+        max_tokens_to_sample=100,
+        stop_sequences=["\n"]
     )
-    return response['text'].strip()
+    return response['completion'].strip()
 
 # Streamlit app
 st.title('Investor Analyst App')
@@ -78,6 +81,7 @@ if company_ticker:
         sentiment_analysis = get_sentiment_and_analysis(ticker)
         st.write(f"Sentiment Analysis for {ticker}: {sentiment_analysis}")
         analysis_data[ticker] = sentiment_analysis
+
     # Get investment recommendation
     st.write("Fetching investment recommendation...")
     recommendation = get_investment_recommendation(company_ticker, analysis_data)
