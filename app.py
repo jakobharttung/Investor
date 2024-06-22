@@ -1,23 +1,31 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-from anthropic import Anthropic, Client
+from anthropic import Client
 import os
 
 # Initialize Anthropic client
 anthropic_api_key = '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'
+
+# Debugging: Display API key (Be careful to not expose it publicly)
+st.write("Using API Key:", anthropic_api_key[:4] + "..." + anthropic_api_key[-4:])  # Show only the first and last 4 characters
+
 anthropic_client = Client(api_key=anthropic_api_key)
 
 # Helper function to get similar companies
 def get_similar_companies(ticker):
     prompt = f"Given the stock ticker {ticker}, list four other companies in the same industry."
-    response = anthropic_client.completions.create(
-        model="claude-v1",
-        prompt=prompt,
-        max_tokens_to_sample=50,
-        stop_sequences=["\n"]
-    )
-    return response['completion'].strip().split(',')
+    try:
+        response = anthropic_client.completions.create(
+            model="claude-v1",
+            prompt=prompt,
+            max_tokens_to_sample=50,
+            stop_sequences=["\n"]
+        )
+        return response['completion'].strip().split(',')
+    except Exception as e:
+        st.error(f"Error fetching similar companies: {e}")
+        return []
 
 # Helper function to get stock data
 def get_stock_data(ticker, period='5y'):
@@ -27,24 +35,32 @@ def get_stock_data(ticker, period='5y'):
 # Helper function to get financials and news sentiment analysis
 def get_sentiment_and_analysis(ticker):
     prompt = f"Given the financials and recent news of the company with the stock ticker {ticker}, provide a sentiment analysis, an analyst consensus, an industry analysis, and an overall investment perspective."
-    response = anthropic_client.completions.create(
-        model="claude-v1",
-        prompt=prompt,
-        max_tokens_to_sample=300,
-        stop_sequences=["\n"]
-    )
-    return response['completion'].strip()
+    try:
+        response = anthropic_client.completions.create(
+            model="claude-v1",
+            prompt=prompt,
+            max_tokens_to_sample=300,
+            stop_sequences=["\n"]
+        )
+        return response['completion'].strip()
+    except Exception as e:
+        st.error(f"Error fetching sentiment analysis for {ticker}: {e}")
+        return ""
 
 # Helper function to get investment recommendation
 def get_investment_recommendation(ticker, analysis_data):
     prompt = f"Based on the following analysis data:\n\n{analysis_data}\n\nProvide an investment recommendation for the company with the stock ticker {ticker} (Buy, Hold, or Sell) with a short explanation."
-    response = anthropic_client.completions.create(
-        model="claude-v1",
-        prompt=prompt,
-        max_tokens_to_sample=100,
-        stop_sequences=["\n"]
-    )
-    return response['completion'].strip()
+    try:
+        response = anthropic_client.completions.create(
+            model="claude-v1",
+            prompt=prompt,
+            max_tokens_to_sample=100,
+            stop_sequences=["\n"]
+        )
+        return response['completion'].strip()
+    except Exception as e:
+        st.error(f"Error fetching investment recommendation for {ticker}: {e}")
+        return ""
 
 # Streamlit app
 st.title('Investor Analyst App')
@@ -94,3 +110,4 @@ if company_ticker:
     for ticker in tickers:
         stock = yf.Ticker(ticker)
         st.write(f"{ticker} - Market Cap: {stock.info['marketCap']}, P/E Ratio: {stock.info['trailingPE']}, EPS: {stock.info['trailingEps']}, Dividend Yield: {stock.info['dividendYield']}")
+
