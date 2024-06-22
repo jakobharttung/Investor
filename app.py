@@ -7,7 +7,7 @@ import os
 import requests
 
 # Initialize OpenAI client
-openai.api_key = os.getenv('OPENAI_API_KEY', 'YOUR_OPENAI_API_KEY')
+openai.api_key = os.getenv('OPENAI_API_KEY', 'sk-proj-IHp8yddYHl6QMILsVtChT3BlbkFJBrkg83EFMbeVkEKNkfK4')
 if openai.api_key == 'YOUR_OPENAI_API_KEY':
     st.warning("Please replace 'YOUR_OPENAI_API_KEY' with your actual OpenAI API key or set the 'OPENAI_API_KEY' environment variable.")
     st.stop()
