@@ -8,7 +8,7 @@ import requests
 
 # Initialize OpenAI client
 client = OpenAI(
-  api_key='sk-proj-IHp8yddYHl6QMILsVtChT3BlbkFJBrkg83EFMbeVkEKNkfK4'
+  api_key='sk-proj-j3HFCAmfWq2uPaeLm2nUT3BlbkFJdEn7s4l52ub4KscUdQyk'
 )
 
 # Helper function to call OpenAI API
