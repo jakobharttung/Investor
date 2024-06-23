@@ -1,16 +1,29 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-from openai import OpenAI
+import openai
 from bs4 import BeautifulSoup
 import os
 import requests
 
-# Initialize OpenAI client
-client = OpenAI(
-  api_key='sk-proj-j3HFCAmfWq2uPaeLm2nUT3BlbkFJdEn7s4l52ub4KscUdQyk'
-)
-st.write(client)
+openai.api_key = 'sk-proj-j3HFCAmfWq2uPaeLm2nUT3BlbkFJdEn7s4l52ub4KscUdQyk'
+
+def is_api_key_valid():
+    try:
+        response = openai.Completion.create(
+            engine="davinci",
+            prompt="This is a test.",
+            max_tokens=5
+        )
+    except:
+        return False
+    else:
+        return True
+
+# Check the validity of the API key
+api_key_valid = is_api_key_valid()
+st.write("API key is valid:", api_key_valid)
+
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
     chat_completion = client.chat.completions.create(
