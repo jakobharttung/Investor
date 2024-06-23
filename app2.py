@@ -30,6 +30,7 @@ def get_company_info(company_name):
 def analyze_ticker(ticker):
     stock = yf.Ticker(ticker)
     financials = stock.financials
+    st.write(stock)
     news = stock.news
     
     # Sentiment analysis
