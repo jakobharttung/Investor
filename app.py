@@ -25,4 +25,4 @@ message = client.messages.create(
         }
     ]
 )
-St.write(message.content)
+st.write(message.content)
