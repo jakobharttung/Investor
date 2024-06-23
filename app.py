@@ -3,6 +3,7 @@ from openai import OpenAI
 client = OpenAI()
 
 completion = client.chat.completions.create(
+  api_key = "sk-proj-vzJUFCg293rnIAZKKo12T3BlbkFJn013xpp0JJbkI0zIbFOk"
   model="gpt-3.5-turbo",
   messages=[
     {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
