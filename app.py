@@ -13,7 +13,7 @@ client = OpenAI(
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-    chat_completion = completion = OpenAI.chat.completions.create(
+    chat_completion = OpenAI.chat.completions.create(
       model="gpt-4",
       messages=[
         {
