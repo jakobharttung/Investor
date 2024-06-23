@@ -1,28 +1,25 @@
 import streamlit as st
-import yfinance as yf
-import plotly.graph_objs as go
 import anthropic
-from bs4 import BeautifulSoup
-import os
-import requests
 # Streamlit app
 st.title('Investor Analyst App')
+import anthropic
 
-os.environ["ANTHROPIC_API_KEY"] = "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"
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+    api_key="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"
+)
 
 message = client.messages.create(
     model="claude-3-5-sonnet-20240620",
     max_tokens=1000,
     temperature=0,
-    system="You are a world-class poet. Respond only with short poems.",
     messages=[
         {
             "role": "user",
             "content": [
                 {
                     "type": "text",
-                    "text": "Why is the ocean salty?"
+                    "text": "tell me short poem on maths\n"
                 }
             ]
         }
