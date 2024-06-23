@@ -6,7 +6,7 @@ import anthropic
 
 client = anthropic.Anthropic(
     # defaults to os.environ.get("ANTHROPIC_API_KEY")
-    api_key="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"
+    api_key="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"
 )
 
 message = client.messages.create(
