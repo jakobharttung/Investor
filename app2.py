@@ -109,3 +109,17 @@ if company:
     
     analyses = {}
     for ticker in all_tickers:
+        stock = yf.Ticker(ticker)
+        financials = stock.financials.to_dict()
+        news = stock.news
+        
+        analysis = analyze_ticker(ticker, financials, news)
+        analyses[ticker] = analysis
+        
+        st.subheader(f"Analysis for {ticker}")
+        st.write(analysis)
+    
+    recommendation = generate_recommendation(company, analyses)
+    
+    st.subheader("Investment Recommendation")
+    st.write(recommendation)
