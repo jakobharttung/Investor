@@ -20,8 +20,8 @@ def get_related_tickers(company_ticker):
         system="You are a financial investor, respond with facts and clear messages.",
         messages=[{"role": "user", "content": prompt}]
     )
-    
-    return [ticker.strip() for ticker in message.content.str.split(',')]
+    st.write(message.content)
+    return [ticker.strip() for ticker in message.content.split(',')]
 
 def get_stock_data(ticker, period='5y'):
     stock = yf.Ticker(ticker)
