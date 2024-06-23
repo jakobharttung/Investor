@@ -10,7 +10,7 @@ import requests
 client = OpenAI(
   api_key='sk-proj-j3HFCAmfWq2uPaeLm2nUT3BlbkFJdEn7s4l52ub4KscUdQyk'
 )
-
+st.write(client)
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
     chat_completion = client.chat.completions.create(
