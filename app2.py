@@ -20,7 +20,7 @@ def get_related_tickers(company_ticker):
         system="You are a financial investor, respond with facts and clear messages.",
         messages=[{"role": "user", "content": prompt}]
     )
-    my_tickers = message.content.text
+    my_tickers = message.completion
     st.write(my_tickers)
     return [ticker.strip() for ticker in my_tickers.split(',')]
 
