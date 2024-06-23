@@ -13,7 +13,7 @@ anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
 def get_related_tickers(company_ticker):
-    prompt = f"""As a financial investor, provide 4 stock tickers for companies in the same industry as {company_ticker}. 
+    prompt = f"""As a financial investor, provide 2 stock tickers for companies in the same industry as {company_ticker}. 
     Respond with only the tickers, separated by commas."""
     
     message = client.messages.create(
@@ -195,10 +195,8 @@ if company_ticker:
         consensus = get_analyst_consensus(ticker)
         st.write("Analyst Consensus:", consensus)
         
-        industry_analysis = get_industry_analysis(ticker, stock.info['industry'])
-        st.write("Industry Analysis:", industry_analysis)
         
-        perspective = get_investment_perspective(ticker, stock_data[ticker], sentiment, consensus, industry_analysis)
+        perspective = get_investment_perspective(ticker, stock_data[ticker], sentiment, consensus)
         st.write("Investment Perspective:", perspective)
         
         perspectives[ticker] = perspective
