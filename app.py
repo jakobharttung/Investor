@@ -2,7 +2,7 @@ import streamlit as st
 import anthropic
 client = anthropic.Anthropic(
     # defaults to os.environ.get("ANTHROPIC_API_KEY")
-  api_key = "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"
+  api_key = ""
 )
 message = client.messages.create(
     model="claude-3-5-sonnet-20240620",
