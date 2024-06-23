@@ -1,13 +1,24 @@
 import streamlit as st
-from openai import OpenAI
-client = OpenAI(api_key = "sk-proj-vzJUFCg293rnIAZKKo12T3BlbkFJn013xpp0JJbkI0zIbFOk")
+import anthropic
+client = anthropic.Anthropic(
+    # defaults to os.environ.get("ANTHROPIC_API_KEY")
+  api_key = "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"
 
-completion = client.chat.completions.create(
-  model="gpt-3.5-turbo",
-  messages=[
-    {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
-    {"role": "user", "content": "Compose a poem that explains the concept of recursion in programming."}
-  ]
+message = client.messages.create(
+    model="claude-3-5-sonnet-20240620",
+    max_tokens=1000,
+    temperature=0,
+    system="You are a world-class poet. Respond only with short poems.",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "Why is the ocean salty?"
+                }
+            ]
+        }
+    ]
 )
-
-st.write(completion.choices[0].message)
+St.write(message.content)
