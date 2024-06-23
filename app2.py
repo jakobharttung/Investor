@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+import re
 import pandas as pd
 import plotly.graph_objects as go
 from bs4 import BeautifulSoup
