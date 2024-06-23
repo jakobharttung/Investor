@@ -21,7 +21,7 @@ def get_related_tickers(company_ticker):
         messages=[{"role": "user", "content": prompt}]
     )
     
-    return [ticker.strip() for ticker in message.content.split(',')]
+    return [ticker.strip() for ticker in message.content.str.split(',')]
 
 def get_stock_data(ticker, period='5y'):
     stock = yf.Ticker(ticker)
