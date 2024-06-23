@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-from openai import openai
+from openai import OpenAI
 from bs4 import BeautifulSoup
 import os
 import requests
@@ -13,7 +13,7 @@ client = OpenAI(
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-    chat_completion = completion = openai.chat.completions.create(
+    chat_completion = completion = OpenAI.chat.completions.create(
       model="gpt-4",
       messages=[
         {
