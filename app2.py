@@ -82,7 +82,7 @@ Format your response as a Python dictionary with keys 'recommendation' and 'expl
         messages=[{"role": "user", "content": prompt}]
     )
     
-    recommendation = response.content[0].text
+    recommendation = eval(response.content[0].text)
     return recommendation
 
 def get_key_metrics(company, recommendation):
