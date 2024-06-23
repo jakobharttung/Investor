@@ -1,5 +1,6 @@
 import streamlit as st
 import yfinance as yf
+import pandas as pd
 import plotly.graph_objects as go
 from bs4 import BeautifulSoup
 import requests
@@ -20,7 +21,7 @@ def get_related_tickers(company_ticker):
         system="You are a financial investor, respond with facts and clear messages.",
         messages=[{"role": "user", "content": prompt}]
     )
-    my_tickers = message.content
+    my_tickers = re.search(r"text='([^']*)'", message.content)
     st.write(my_tickers)
     return [ticker.strip() for ticker in my_tickers.split(',')]
 
