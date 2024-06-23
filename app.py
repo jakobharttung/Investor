@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
-from openai import OpenAI
+from openai import openai
 from bs4 import BeautifulSoup
 import os
 import requests
