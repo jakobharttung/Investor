@@ -105,7 +105,7 @@ def get_industry_analysis(ticker, industry):
     
     return message.content
 
-def get_investment_perspective(ticker, historical_data, sentiment, consensus, industry_analysis):
+def get_investment_perspective(ticker, historical_data, sentiment, consensus):
     prompt = f"""As a financial investor, provide an overall perspective on the investment opportunity for {ticker} based on the following information:
     
     Historical Data Summary:
