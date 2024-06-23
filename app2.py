@@ -6,7 +6,7 @@ import requests
 import anthropic
 import os
 
-os.environ["ANTHROPIC_API_KEY"] == st.secrets["ANTHROPIC_API_KEY"]         
+os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]         
 my_api_key = st.secrets['ANTHROPIC_API_KEY']  
 
 # Initialize the language model (pseudo code, replace with actual API calls)
