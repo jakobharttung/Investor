@@ -148,6 +148,7 @@ if company:
     
     # Display recommendation
     st.subheader("Investment Recommendation")
+    st.write(recommendation)
     st.write(f"**{recommendation['recommendation']}**")
     st.write(recommendation['explanation'])
     
