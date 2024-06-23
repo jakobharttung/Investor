@@ -30,7 +30,6 @@ def get_company_info(company_name):
 def analyze_ticker(ticker):
     stock = yf.Ticker(ticker)
     financials = stock.financials
-    st.write(financials)
     news = stock.news
     
     # Sentiment analysis
@@ -82,7 +81,7 @@ Format your response as a Python dictionary with keys 'recommendation' and 'expl
         system="You are a financial investor, respond with facts and clear messages.",
         messages=[{"role": "user", "content": prompt}]
     )
-    
+    st.write(response.content[0].text)
     recommendation = eval(response.content[0].text)
     return recommendation
 
