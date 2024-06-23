@@ -13,18 +13,15 @@ client = OpenAI(
 
 # Helper function to call OpenAI API
 def call_openai(prompt, max_tokens=100):
-   
-    chat_completion = client.chat.completions.create(
-    messages=[
+    chat_completion completion = openai.chat.completions.create(
+      model="gpt-4",
+      messages=[
         {
             "role": "user",
-            "content": "Given the stock ticker MSFT, list four other companies in the same industry.",
-        }
+            "content": f"{prompt}",
+        },
     ],
-    model="gpt-3.5-turbo",
-    )
-    return response.choices[0].message['content'].strip()
-
+)
 # Helper function to get similar companies
 def get_similar_companies(ticker):
     prompt = f"Given the stock ticker {ticker}, list four other companies in the same industry."
