@@ -49,7 +49,7 @@ def main():
 
         # Get historical data for all tickers
         data = {ticker: get_stock_data(ticker) for ticker in tickers}
-
+        st.write(data)
         # Create plotly chart
         fig = go.Figure()
         for ticker, stock_data in data.items():
