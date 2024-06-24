@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 # Initialize Anthropic client
 anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-client = anthropic.Anthropic(api_key=anthropic_api_key)
+client = Anthropic(api_key=anthropic_api_key)
 
 def get_stock_data(ticker, period="5y"):
     stock = yf.Ticker(ticker)
