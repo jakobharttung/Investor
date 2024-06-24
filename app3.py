@@ -22,14 +22,13 @@ def get_tickers(company):
 
 def get_stock_data(tickers, period='5y'):
     data = {}
-    st.write(tickers)
     for ticker in tickers:
-        st.write(ticker)
         stock = yf.Ticker(ticker)
         data[ticker] = stock.history(period=period)
     return data
 
 def plot_stock_data(data, period='5y'):
+    st.write(data)
     fig = go.Figure()
     for ticker, df in data.items():
         fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name=ticker))
