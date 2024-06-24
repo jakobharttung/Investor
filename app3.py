@@ -124,6 +124,7 @@ company = st.text_input('Enter a company name:')
 
 if company:
     tickers = get_tickers(company)
+    st.write(tickers)
     stock_data = get_stock_data(tickers)
     
     # Plot stock data
