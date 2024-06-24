@@ -22,6 +22,7 @@ def get_tickers(company):
 
 def get_stock_data(tickers, period='5y'):
     data = {}
+    st.write(tickers)
     for ticker in tickers:
         st.write(ticker)
         stock = yf.Ticker(ticker)
