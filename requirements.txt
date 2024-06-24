@@ -2,8 +2,7 @@ pandas
 matplotlib
 streamlit
 openpyxl
-yfinance --upgrade
+yfinance
 plotly
-openai
 anthropic
 beautifulsoup4
