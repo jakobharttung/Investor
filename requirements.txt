@@ -2,7 +2,7 @@ pandas
 matplotlib
 streamlit
 openpyxl
-yfinance --upgrade --no-cache-dir
+yfinance --upgrade
 plotly
 openai
 anthropic
