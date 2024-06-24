@@ -1,37 +1,20 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
+from anthropic import Anthropic
 from bs4 import BeautifulSoup
-import requests
-import anthropic
+import pandas as pd
 from datetime import datetime, timedelta
 
 # Initialize Anthropic client
-anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-client = anthropic.Anthropic(api_key=anthropic_api_key)
+anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-def get_stock_data(ticker, period="5y"):
-    stock = yf.Ticker(ticker)
-    hist = stock.history(period=period)
-    return hist
-
-def get_company_info(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.info
-
-def get_company_news(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.news
-
-def get_company_financials(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.financials
-
-def call_anthropic(prompt):
-    response = client.messages.create(
+def get_llm_response(prompt):
+    response = anthropic.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=1000,
-        system="You are a financial investor, respond with facts and clear messages",
+        temperature=0,
+        system="You are a financial investor, respond with facts and clear messages.",
         messages=[{"role": "user", "content": prompt}]
     )
     return response.content[0].text
@@ -41,73 +24,81 @@ st.title("Investor Analyst App")
 company = st.text_input("Enter a company name:")
 
 if company:
-    # Get stock ticker and competitors
-    prompt = f"What is the stock ticker for {company}? Also, provide a Python list of 5 other tickers for competitors in the same industry as {company} with comparable size and strategy."
-    response = call_anthropic(prompt)
-    
-    # Parse the response to get the main ticker and competitor tickers
-    lines = response.split('\n')
-    main_ticker = lines[0].split(':')[-1].strip()
-    competitor_tickers = eval(lines[1])
-    
-    all_tickers = [main_ticker] + competitor_tickers
-    
-    # Get historical data for all tickers
-    data = {ticker: get_stock_data(ticker) for ticker in all_tickers}
-    
-    # Create plotly chart
+    # Get tickers
+    tickers_prompt = f"Provide the stock ticker for {company} and 5 other tickers for competitors in the same industry of comparable size and strategy. Format the response as a comma-separated list of tickers only."
+    tickers_response = get_llm_response(tickers_prompt)
+    tickers = [ticker.strip() for ticker in tickers_response.split(',')]
+
+    # Fetch historical data
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=5*365)
+    data = yf.download(tickers, start=start_date, end=end_date)
+
+    # Create interactive chart
     fig = go.Figure()
-    for ticker, hist in data.items():
-        fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name=ticker))
-    
-    fig.update_layout(title='Stock Price History', xaxis_title='Date', yaxis_title='Price')
-    
-    # Add period selection buttons
-    periods = ['1mo', '3mo', '6mo', '1y', '2y', '5y', 'max']
-    buttons = []
-    for period in periods:
-        buttons.append(dict(label=period, method='update', args=[{'visible': [True]*len(all_tickers)}, {'xaxis': {'range': [datetime.now() - timedelta(days={'mo': 30, 'y': 365}[period[-1]]*int(period[:-1])), datetime.now()]}}]))
-    
-    fig.update_layout(updatemenus=[dict(type='buttons', showactive=False, buttons=buttons)])
-    
+    for ticker in tickers:
+        fig.add_trace(go.Scatter(x=data.index, y=data['Close'][ticker], mode='lines', name=ticker))
+
+    fig.update_layout(
+        title="Stock Price History",
+        xaxis_title="Date",
+        yaxis_title="Price",
+        hovermode="x unified"
+    )
+
+    # Add range slider and buttons
+    fig.update_xaxes(
+        rangeslider_visible=True,
+        rangeselector=dict(
+            buttons=list([
+                dict(count=1, label="1m", step="month", stepmode="backward"),
+                dict(count=6, label="6m", step="month", stepmode="backward"),
+                dict(count=1, label="YTD", step="year", stepmode="todate"),
+                dict(count=1, label="1y", step="year", stepmode="backward"),
+                dict(step="all")
+            ])
+        )
+    )
+
     st.plotly_chart(fig)
-    
+
     # Analyze each ticker
     analyses = {}
-    for ticker in all_tickers:
-        info = get_company_info(ticker)
-        news = get_company_news(ticker)
-        financials = get_company_financials(ticker)
-        
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
+        financials = stock.financials
+        info = stock.info
+        news = stock.news
+
         # Sentiment analysis
-        prompt = f"Perform a sentiment analysis on this data for {ticker}: {info}\n{news}\n{financials}"
-        sentiment = call_anthropic(prompt)
-        
+        sentiment_prompt = f"Perform a sentiment analysis on the following financial data, company info, and news for {ticker}: {financials}, {info}, {news}. Provide a short summary of the sentiment."
+        sentiment = get_llm_response(sentiment_prompt)
+
         # Analyst consensus
-        prompt = f"What is the analyst consensus for {ticker}?"
-        consensus = call_anthropic(prompt)
-        
+        consensus_prompt = f"Based on the available data, what is the analyst consensus for {ticker}? Provide a short summary."
+        consensus = get_llm_response(consensus_prompt)
+
         # Overall analysis
-        prompt = f"Provide an overall analysis of {ticker} within its industry."
-        overall = call_anthropic(prompt)
-        
+        analysis_prompt = f"Provide an overall analysis of {ticker} within its industry based on the following information: {financials}, {info}, {news}, {sentiment}, {consensus}. Keep the analysis concise."
+        analysis = get_llm_response(analysis_prompt)
+
         analyses[ticker] = {
-            'sentiment': sentiment,
-            'consensus': consensus,
-            'overall': overall
+            "sentiment": sentiment,
+            "consensus": consensus,
+            "analysis": analysis
         }
-    
+
     # Generate recommendation
-    prompt = f"Based on the following analyses, generate a recommendation (Buy, Hold, or Sell) for investing in {company} compared to its competitors. Provide a short explanation for the recommendation.\n\n{analyses}"
-    recommendation = call_anthropic(prompt)
-    
-    # Display recommendation
+    recommendation_prompt = f"Based on the following analyses of {company} and its competitors {analyses}, provide an investment recommendation for {company}: Buy, Hold, or Sell. Include a short explanation for the recommendation."
+    recommendation = get_llm_response(recommendation_prompt)
+
+    # Generate key financial metrics
+    metrics_prompt = f"Based on the recommendation '{recommendation}' and the analyses {analyses}, what are the key financial metrics supporting this recommendation for {company}? Provide a concise list of the most important metrics and their values."
+    key_metrics = get_llm_response(metrics_prompt)
+
+    # Display results
     st.subheader("Investment Recommendation")
     st.write(recommendation)
-    
-    # Generate and display key financial metrics
-    prompt = f"Based on the recommendation and analyses, what are the key financial metrics supporting this recommendation for {company}? Provide a concise summary."
-    metrics = call_anthropic(prompt)
-    
+
     st.subheader("Key Financial Metrics")
-    st.write(metrics)
+    st.write(key_metrics)
