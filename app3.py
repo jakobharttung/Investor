@@ -125,9 +125,8 @@ company = st.text_input('Enter a company name:')
 
 if company:
     tickers = get_tickers(company)
-    st.write(tickers)
     stock_data = get_stock_data(tickers)
-    
+    st.write(stock_data)
     # Plot stock data
     fig = plot_stock_data(stock_data)
     st.plotly_chart(fig)
