@@ -43,7 +43,7 @@ def main():
 
     if company:
         # Get stock ticker and competitors
-        prompt = f"As a financial investor, provide the stock ticker for {company_name} and 3 other tickers for its main competitors in the same industry. Format the response as a Python list of strings, with the first element being the ticker for {company_name}."
+        prompt = f"As a financial investor, provide the stock ticker for {company} and 3 other tickers for its main competitors in the same industry. Format the response as a Python list of strings, with the first element being the ticker for {company}."
         tickers_response = call_anthropic(prompt)
         st.write(tickers_response)
         tickers = eval(tickers_response.content[0].text)
