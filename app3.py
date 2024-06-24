@@ -45,7 +45,6 @@ def main():
         # Get stock ticker and competitors
         prompt = f"As a financial investor, provide the stock ticker for {company} and 3 other tickers for its main competitors in the same industry. Format the response as a Python list of strings, with the first element being the ticker for {company}."
         tickers_response = call_anthropic(prompt)
-        st.write(tickers_response)
         tickers = tickers_response
 
         # Get historical data for all tickers
@@ -77,6 +76,7 @@ def main():
         # Analyze each ticker
         analyses = {}
         for ticker in tickers:
+            st.write(ticker)
             info = get_company_info(ticker)
             news = get_company_news(ticker)
             financials = get_company_financials(ticker)
