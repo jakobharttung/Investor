@@ -29,10 +29,13 @@ def get_company_info(company_name):
 
 def analyze_ticker(ticker):
     stock = yf.Ticker(ticker)
+    st.write(stock)
     financials = stock.financials
+    st.write(financials)
     info = stock.info
+    st.write(info)
     news = stock.news
-    
+    st.write(news)
     # Sentiment analysis
     sentiment_prompt = f"Analyze the sentiment of the following financial data and news for {ticker}:\n\nFinancials:\n{financials}\n\nNews:\n{news}\n\nProvide a brief sentiment analysis."
     sentiment_response = anthropic.messages.create(
