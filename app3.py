@@ -45,7 +45,7 @@ def main():
         # Get stock ticker and competitors
         prompt = f"As a financial investor, provide the stock ticker for {company} and 5 other tickers for competitors in the same industry of comparable size and strategy. Format the response as a Python list of strings."
         tickers_response = call_anthropic(prompt)
-        tickers = eval(tickers_response)
+        tickers = eval(tickers_response.content[0].text)
 
         # Get historical data for all tickers
         data = {ticker: get_stock_data(ticker) for ticker in tickers}
