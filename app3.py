@@ -29,7 +29,7 @@ def get_company_financials(ticker):
 
 def call_anthropic(prompt):
     response = client.messages.create(
-        model="claude-3-sonnet-20240620",
+        model="claude-3-sonnet-20240229",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and clear messages",
         messages=[{"role": "user", "content": prompt}]
