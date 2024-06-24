@@ -3,7 +3,7 @@ import yfinance as yf
 import plotly.graph_objects as go
 from bs4 import BeautifulSoup
 import requests
-import anthropic
+from anthropic import Anthropic
 from datetime import datetime, timedelta
 
 # Initialize Anthropic client
