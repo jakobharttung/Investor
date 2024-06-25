@@ -1,131 +1,45 @@
 import streamlit as st
 import yfinance as yf
-import plotly.graph_objects as go
+import anthropic
+import os
 from bs4 import BeautifulSoup
-import requests
-from anthropic import Anthropic
-import pandas as pd
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
 
 # Initialize Anthropic client
-anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+client = anthropic.Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-def get_stock_data(ticker, period="5y"):
-    stock = yf.Ticker(ticker)
-    data = stock.history(period=period)
-    return data
 
-def get_company_info(company_name):
-    prompt = f"""As a financial investor, provide the stock ticker for {company_name} and 3 other tickers for its main competitors in the same industry. Format the response as a Python list of strings, with the first element being the ticker for {company_name}."""
+def get_tickers(company):
+    prompt = f"As a financial investor, provide the stock ticker for {company} and 5 other tickers for competitors in the same industry of comparable size and strategy. Format the response as a comma-separated list of tickers only."
     
-    response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=150,
-        system="You are a financial investor, respond with facts and clear messages.",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    tickers = eval(response.content[0].text)
-    return tickers
-
-def analyze_ticker(ticker):
-    stock = yf.Ticker(ticker)
-    st.write(stock)
-    financials = stock.financials
-    st.write(financials)
-    info = stock.info
-    st.write(info)
-    news = stock.news
-    st.write(news)
-    # Sentiment analysis
-    sentiment_prompt = f"Analyze the sentiment of the following financial data and news for {ticker}:\n\nFinancials:\n{financials}\n\nNews:\n{news}\n\nProvide a brief sentiment analysis."
-    sentiment_response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=200,
-        system="You are a financial investor, respond with facts and clear messages.",
-        messages=[{"role": "user", "content": sentiment_prompt}]
-    )
-    sentiment = sentiment_response.content[0].text
-
-    # Analyst consensus
-    consensus_prompt = f"What is the current analyst consensus for {ticker}? Provide a brief summary."
-    consensus_response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=150,
-        system="You are a financial investor, respond with facts and clear messages.",
-        messages=[{"role": "user", "content": consensus_prompt}]
-    )
-    consensus = consensus_response.content[0].text
-
-    # Industry analysis
-    industry_prompt = f"Analyze {ticker} within its industry. Provide a brief overview of its position and performance relative to competitors."
-    industry_response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=200,
-        system="You are a financial investor, respond with facts and clear messages.",
-        messages=[{"role": "user", "content": industry_prompt}]
-    )
-    industry_analysis = industry_response.content[0].text
-
-    return {
-        "sentiment": sentiment,
-        "consensus": consensus,
-        "industry_analysis": industry_analysis
-    }
-
-def generate_recommendation(company, analyses):
-    prompt = f"""As a financial investor, based on the following analyses for {company} and its competitors, provide a recommendation (Buy, Hold, or Sell) with a brief explanation:
-
-{analyses}
-
-Format your response as a Python dictionary with keys 'recommendation' and 'explanation'."""
-
-    response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=250,
-        system="You are a financial investor, respond with facts and clear messages.",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    st.write(response.content[0].text)
-    recommendation = eval(response.content[0].text)
-    return recommendation
-
-def get_key_metrics(company, recommendation):
-    prompt = f"""As a financial investor, provide the key financial metrics supporting the following recommendation for {company}:
-
-{recommendation}
-
-List 3-5 quantitative metrics with their values and a brief qualitative explanation for each."""
-
-    response = anthropic.messages.create(
+    response = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
-        system="You are a financial investor, respond with facts and clear messages.",
+        system="You are a financial investor, respond with facts and focused messages.",
         messages=[{"role": "user", "content": prompt}]
     )
     
-    metrics = response.content[0].text
-    return metrics
+    tickers = response.content[0].text.strip().split(',')
+    return [ticker.strip() for ticker in tickers]
 
-st.title("Investor Analyst App")
+def get_stock_data(tickers, period='5y'):
+    data = {}
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
+        data[ticker] = stock.history(period=period)
+    return data
 
-company = st.text_input("Enter a company name:")
-
-if company:
-    tickers = get_company_info(company)
-    
-    # Retrieve historical data
-    data = {ticker: get_stock_data(ticker) for ticker in tickers}
-    
-    # Create plotly chart
+def plot_stock_data(data, period='5y'):
     fig = go.Figure()
     for ticker, df in data.items():
-        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name=ticker))
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name=ticker))
     
     fig.update_layout(
-        title=f"{company} and Competitors Stock Prices",
-        xaxis_title="Date",
-        yaxis_title="Price",
-        legend_title="Tickers"
+        title='Stock Price Comparison',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        hovermode='x unified'
     )
     
     # Add range slider and buttons
@@ -142,21 +56,96 @@ if company:
         )
     )
     
-    st.plotly_chart(fig)
+    return fig
+
+def analyze_ticker(ticker):
+    stock = yf.Ticker(ticker)
+    financials = stock.financials
+    info = stock.info
+    news = stock.news
     
-    # Analyze tickers
-    analyses = {ticker: analyze_ticker(ticker) for ticker in tickers}
+    # Sentiment analysis
+    sentiment_prompt = f"As a financial investor, analyze the sentiment of the following financial data and news for {ticker}:\n\nFinancials: {financials}\n\nInfo: {info}\n\nNews: {news}\n\nProvide a concise sentiment analysis."
+    sentiment_response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=300,
+        system="You are a financial investor, respond with facts and focused messages.",
+        messages=[{"role": "user", "content": sentiment_prompt}]
+    )
+    sentiment = sentiment_response.content[0].text.strip()
     
-    # Generate recommendation
+    # Analyst consensus
+    consensus_prompt = f"As a financial investor, provide the analyst consensus for {ticker} based on available data."
+    consensus_response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=300,
+        system="You are a financial investor, respond with facts and focused messages.",
+        messages=[{"role": "user", "content": consensus_prompt}]
+    )
+    consensus = consensus_response.content[0].text.strip()
+    
+    # Overall analysis
+    analysis_prompt = f"As a financial investor, provide an overall analysis and detailed financial numbers for {ticker} within its industry."
+    analysis_response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=500,
+        system="You are a financial investor, respond with facts and focused messages.",
+        messages=[{"role": "user", "content": analysis_prompt}]
+    )
+    analysis = analysis_response.content[0].text.strip()
+    
+    return {
+        'sentiment': sentiment,
+        'consensus': consensus,
+        'analysis': analysis
+    }
+
+def generate_recommendation(company, analyses):
+    prompt = f"As a financial investor, based on the following analyses for {company} and its competitors, provide a recommendation (Buy, Hold, or Sell) with a short explanation:\n\n"
+    for ticker, analysis in analyses.items():
+        prompt += f"{ticker}:\nSentiment: {analysis['sentiment']}\nConsensus: {analysis['consensus']}\nAnalysis: {analysis['analysis']}\n\n"
+    
+    response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=500,
+        system="You are a financial investor, respond with facts and focused messages.",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response.content[0].text.strip()
+
+def get_key_metrics(company, recommendation):
+    prompt = f"As a financial investor, based on the following recommendation for {company}, provide the key financial metrics supporting it:\n\n{recommendation}"
+    
+    response = client.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=500,
+        system="You are a financial investor, respond with facts and focused messages.",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response.content[0].text.strip()
+
+# Streamlit app
+st.title("Investor Analysis App")
+
+company = st.text_input("Enter a company name:")
+
+if company:
+    tickers = get_tickers(company)
+    stock_data = get_stock_data(tickers)
+    
+    st.plotly_chart(plot_stock_data(stock_data))
+    
+    analyses = {}
+    for ticker in tickers:
+        analyses[ticker] = analyze_ticker(ticker)
+    
     recommendation = generate_recommendation(company, analyses)
+    key_metrics = get_key_metrics(company, recommendation)
     
-    # Display recommendation
     st.subheader("Investment Recommendation")
     st.write(recommendation)
-    st.write(f"**{recommendation['recommendation']}**")
-    st.write(recommendation['explanation'])
     
-    # Display key metrics
     st.subheader("Key Financial Metrics")
-    metrics = get_key_metrics(company, recommendation)
-    st.write(metrics)
+    st.write(key_metrics)
