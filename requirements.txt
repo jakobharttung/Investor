@@ -6,3 +6,4 @@ yfinance
 plotly
 anthropic
 beautifulsoup4
+pygwalker
