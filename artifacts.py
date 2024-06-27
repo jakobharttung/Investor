@@ -16,7 +16,10 @@ def get_stock_data(ticker, period="10y", interval="1d"):
             st.error(f"No data available for {ticker}. This could be due to an invalid ticker symbol or a temporary issue with the data provider.")
             return None
         
-        return data[['Open', 'High', 'Low', 'Close']]  # Select only required columns
+        # Add the index (date) as a column
+        data = data.reset_index()
+        data = data.rename(columns={'Date': 'Timestamp'})
+        return data[['Timestamp', 'Open', 'High', 'Low', 'Close']]  # Select required columns
     except Exception as e:
         st.error(f"An error occurred while fetching data: {str(e)}")
         return None
@@ -37,7 +40,7 @@ if fetch_data:
     
     if df is not None and not df.empty:
         st.success(f"Data fetched for {ticker} (10 years of daily data)")
-        st.write(f"Data range: from {df.index.min()} to {df.index.max()}")
+        st.write(f"Data range: from {df['Timestamp'].min()} to {df['Timestamp'].max()}")
         st.write(f"Number of data points: {len(df)}")
         
         # Create tabs
@@ -54,16 +57,16 @@ if fetch_data:
             # Date range selection
             col1, col2 = st.columns(2)
             with col1:
-                start_date = st.date_input("Start Date", min(df.index).date(), min_value=min(df.index).date(), max_value=max(df.index).date())
+                start_date = st.date_input("Start Date", df['Timestamp'].min().date(), min_value=df['Timestamp'].min().date(), max_value=df['Timestamp'].max().date())
             with col2:
-                end_date = st.date_input("End Date", max(df.index).date(), min_value=min(df.index).date(), max_value=max(df.index).date())
+                end_date = st.date_input("End Date", df['Timestamp'].max().date(), min_value=df['Timestamp'].min().date(), max_value=df['Timestamp'].max().date())
             
             # Filter data based on selected date range
-            mask = (df.index.date >= start_date) & (df.index.date <= end_date)
+            mask = (df['Timestamp'].dt.date >= start_date) & (df['Timestamp'].dt.date <= end_date)
             filtered_df = df.loc[mask]
             
             # Create candlestick chart
-            fig = go.Figure(data=[go.Candlestick(x=filtered_df.index,
+            fig = go.Figure(data=[go.Candlestick(x=filtered_df['Timestamp'],
                                                  open=filtered_df['Open'],
                                                  high=filtered_df['High'],
                                                  low=filtered_df['Low'],
