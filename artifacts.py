@@ -16,16 +16,18 @@ def get_stock_data(ticker, period="10y", interval="1d"):
             st.error(f"No data available for {ticker}. This could be due to an invalid ticker symbol or a temporary issue with the data provider.")
             return None
         
-        # Add the index (date) as a column
         data = data.reset_index()
         data = data.rename(columns={'Date': 'Timestamp'})
-        return data[['Timestamp', 'Open', 'High', 'Low', 'Close']]  # Select required columns
+        return data[['Timestamp', 'Open', 'High', 'Low', 'Close']]
     except Exception as e:
         st.error(f"An error occurred while fetching data: {str(e)}")
         return None
 
 st.set_page_config(layout="wide")
 st.title("My First Artifacts App")
+
+# Debug information
+st.write("Debug: Application started")
 
 # Sidebar for user input
 with st.sidebar:
@@ -34,7 +36,7 @@ with st.sidebar:
 
 # Main content
 if fetch_data:
-    # Fetch initial data
+    st.write("Debug: Fetch data button clicked")
     with st.spinner("Fetching 10 years of daily stock data..."):
         df = get_stock_data(ticker)
     
@@ -43,15 +45,17 @@ if fetch_data:
         st.write(f"Data range: from {df['Timestamp'].min()} to {df['Timestamp'].max()}")
         st.write(f"Number of data points: {len(df)}")
         
-        # Create tabs
+        st.write("Debug: Creating tabs")
         tab1, tab2 = st.tabs(["PyGWalker Analysis", "Candlestick Chart"])
         
         with tab1:
+            st.write("Debug: Inside PyGWalker tab")
             st.header("Interactive Analysis with PyGWalker")
             pyg_html = pyg.to_html(df)
             st.components.v1.html(pyg_html, height=600)
         
         with tab2:
+            st.write("Debug: Inside Candlestick tab")
             st.header("Candlestick Chart")
             
             # Date range selection
@@ -80,3 +84,5 @@ else:
 
 # Display yfinance version
 st.sidebar.write(f"yfinance version: {yf.__version__}")
+
+st.write("Debug: End of application")
