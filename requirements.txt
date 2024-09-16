@@ -8,4 +8,4 @@ anthropic
 beautifulsoup4
 pygwalker
 setuptools
-pandas_ta
+ta
