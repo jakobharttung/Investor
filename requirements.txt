@@ -7,3 +7,4 @@ plotly
 anthropic
 beautifulsoup4
 pygwalker
+pandas_ta
