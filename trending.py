@@ -83,7 +83,6 @@ def create_candlestick_chart(data, crossovers, explanations):
             y=[data.loc[date, 'High'] if cross_type == 'golden' else data.loc[date, 'Low']],
             mode='markers+text',
             marker=dict(symbol=symbol, size=15, color=color),
-            text=[explanations[i]],
             textposition='top center' if cross_type == 'golden' else 'bottom center',
             showlegend=False
         ))
