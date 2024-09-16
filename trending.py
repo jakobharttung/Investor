@@ -8,7 +8,7 @@ import requests
 import os
 from anthropic import Anthropic
 from datetime import datetime, timedelta
-import pandas_ta as ta
+import ta
 
 # Initialize Anthropic client
 anthropic = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
