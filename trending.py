@@ -39,7 +39,7 @@ def identify_crossovers(data):
             crossovers.append(('death', data.index[i]))
     return crossovers
     
-ef get_news(ticker, date):
+def get_news(ticker, date):
     start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=7)
     end_date = date.replace(tzinfo=pytz.UTC) + timedelta(days=7)
     stock = yf.Ticker(ticker)
