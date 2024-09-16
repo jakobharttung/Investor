@@ -8,6 +8,7 @@ import requests
 import os
 from anthropic import Anthropic
 from datetime import datetime, timedelta
+import pytz
 import ta
 
 # Initialize Anthropic client
@@ -37,12 +38,13 @@ def identify_crossovers(data):
               data['SMA20'].iloc[i] < data['SMA50'].iloc[i]):
             crossovers.append(('death', data.index[i]))
     return crossovers
-def get_news(ticker, date):
-    start_date = date - timedelta(days=7)
-    end_date = date + timedelta(days=7)
+    
+ef get_news(ticker, date):
+    start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=7)
+    end_date = date.replace(tzinfo=pytz.UTC) + timedelta(days=7)
     stock = yf.Ticker(ticker)
     news = stock.news
-    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
+    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=pytz.UTC) <= end_date]
     return filtered_news
 
 def analyze_reversal(ticker, reversal_type, date, news):
