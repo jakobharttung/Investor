@@ -105,6 +105,7 @@ if ticker:
         explanations = []
         for cross_type, date in crossovers:
             news = get_news(ticker, date)
+            st.write(news)
             explanation = analyze_reversal(ticker, cross_type, date, news)
             explanations.append(explanation)
 
