@@ -82,7 +82,7 @@ def analyze_cross(cross_date, cross_type, company_info, news):
     {relevant_news}
 
     Provide a short explanation of potential factors that might have influenced this {cross_type}.
-    Focus on notable events, facts, company communications, product announcements, investor events, M&A news, or strategy changes.
+    Focus on notable events, facts, company communications, product announcements, investor events, M&A news, or strategy changes. We are looking for information that would explain the change in stock price
     Avoid technical explanations about the cross itself being bullish or bearish.
     """
 
