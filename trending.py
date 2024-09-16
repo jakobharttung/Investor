@@ -2,96 +2,102 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objects as go
 import pandas as pd
-import pandas_ta as ta
-import datetime as dt
-import openai  # Assuming this is used to connect to Anthropic Claude
+import numpy as np
+from bs4 import BeautifulSoup
+import requests
+import os
+from anthropic import Anthropic
+from datetime import datetime, timedelta
+import ta
 
-# Load the API key from Streamlit secrets
-openai.api_key = st.secrets["anthropic"]["api_key"]
+# Initialize Anthropic client
+anthropic = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
-# Function to call Anthropic Claude for explanations
-def get_explanations(news_list):
-    explanations = []
-    for news in news_list:
-        # Call to Claude for generating explanation (pseudo-code, replace with real call)
-        response = openai.Completion.create(
-            model="claude-model",  # Use the correct model endpoint
-            prompt=f"Explain the market impact of this news: {news}",
-            max_tokens=100
-        )
-        explanations.append(response.choices[0].text)
-    return explanations
+def get_stock_data(ticker):
+    stock = yf.Ticker(ticker)
+    data = stock.history(period="ytd")
+    return data
 
-# Function to fetch news related to stock around key dates
-def get_news_around_dates(ticker, dates):
-    news = []
-    for date in dates:
-        # Fetch news using yfinance or a news API for the given date (pseudo-code)
-        news.append(f"News on {date} for {ticker}")  # Replace with actual news retrieval function
-    return news
+def calculate_moving_averages(data):
+    data['SMA50'] = ta.trend.sma_indicator(data['Close'], window=50)
+    data['SMA200'] = ta.trend.sma_indicator(data['Close'], window=200)
+    return data
 
-# App Title
-st.title("Stock Technical Analysis with Reversal Explanations")
+def identify_crossovers(data):
+    crossovers = []
+    for i in range(1, len(data)):
+        if data['SMA50'].iloc[i-1] <= data['SMA200'].iloc[i-1] and data['SMA50'].iloc[i] > data['SMA200'].iloc[i]:
+            crossovers.append(('golden', data.index[i]))
+        elif data['SMA50'].iloc[i-1] >= data['SMA200'].iloc[i-1] and data['SMA50'].iloc[i] < data['SMA200'].iloc[i]:
+            crossovers.append(('death', data.index[i]))
+    return crossovers
 
-# Step 1: Ticker Entry
-ticker = st.text_input('Enter Stock Ticker', 'AAPL')
+def get_news(ticker, date):
+    start_date = date - timedelta(days=7)
+    end_date = date + timedelta(days=7)
+    stock = yf.Ticker(ticker)
+    news = stock.news
+    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
+    return filtered_news
 
-# Retrieve stock data for the current year
+def analyze_reversal(ticker, reversal_type, date, news):
+    prompt = f"""As a financial investor, analyze the {reversal_type} cross for {ticker} stock on {date}. 
+    Consider the following news items:
+    {news}
+    
+    Provide a concise explanation for this stock reversal, including both quantitative and qualitative factors. 
+    Focus on the most relevant information and limit your response to 2-3 sentences."""
+
+    response = anthropic.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=150,
+        system="You are a financial investor, respond with facts and focused messages",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response.content[0].text.replace("'", "\\'")
+
+def create_candlestick_chart(data, crossovers, explanations):
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                    open=data['Open'],
+                    high=data['High'],
+                    low=data['Low'],
+                    close=data['Close'])])
+
+    for i, (cross_type, date) in enumerate(crossovers):
+        color = 'green' if cross_type == 'golden' else 'red'
+        symbol = 'triangle-up' if cross_type == 'golden' else 'triangle-down'
+        fig.add_trace(go.Scatter(
+            x=[date],
+            y=[data.loc[date, 'High'] if cross_type == 'golden' else data.loc[date, 'Low']],
+            mode='markers+text',
+            marker=dict(symbol=symbol, size=15, color=color),
+            text=[explanations[i]],
+            textposition='top center' if cross_type == 'golden' else 'bottom center',
+            showlegend=False
+        ))
+
+    fig.update_layout(title=f'{ticker} Stock Price', xaxis_title='Date', yaxis_title='Price')
+    return fig
+
+st.title('Stock Trend Analysis')
+
+ticker = st.text_input('Enter Stock Ticker:', value='AAPL')
+
 if ticker:
-    stock_data = yf.download(ticker, start="2023-01-01", end=dt.datetime.today().strftime('%Y-%m-%d'))
+    data = get_stock_data(ticker)
+    data = calculate_moving_averages(data)
+    crossovers = identify_crossovers(data)
 
-    # Step 2: Plot Candlestick Chart
-    fig = go.Figure(data=[go.Candlestick(x=stock_data.index,
-                                         open=stock_data['Open'],
-                                         high=stock_data['High'],
-                                         low=stock_data['Low'],
-                                         close=stock_data['Close'])])
+    explanations = []
+    for cross_type, date in crossovers:
+        news = get_news(ticker, date)
+        explanation = analyze_reversal(ticker, cross_type, date, news)
+        explanations.append(explanation)
 
-    # Step 3: Calculate moving averages and detect crosses
-    stock_data['SMA50'] = ta.sma(stock_data['Close'], length=50)  # 50-day SMA
-    stock_data['SMA200'] = ta.sma(stock_data['Close'], length=200)  # 200-day SMA
-
-    # Detect Golden and Dead Crosses
-    stock_data['Golden Cross'] = (stock_data['SMA50'] > stock_data['SMA200']) & (stock_data['SMA50'].shift(1) <= stock_data['SMA200'].shift(1))
-    stock_data['Dead Cross'] = (stock_data['SMA50'] < stock_data['SMA200']) & (stock_data['SMA50'].shift(1) >= stock_data['SMA200'].shift(1))
-
-    # Plot arrows for golden and dead crosses
-    for i in range(len(stock_data)):
-        if stock_data['Golden Cross'].iloc[i]:
-            fig.add_annotation(x=stock_data.index[i], y=stock_data['High'].iloc[i],
-                               text="🡅", showarrow=True, arrowhead=1, arrowsize=2, font=dict(color="green"))
-        if stock_data['Dead Cross'].iloc[i]:
-            fig.add_annotation(x=stock_data.index[i], y=stock_data['Low'].iloc[i],
-                               text="🡇", showarrow=True, arrowhead=1, arrowsize=2, font=dict(color="red"))
-
-    # Display the chart
-    fig.update_layout(title=f"Daily Candlestick Chart for {ticker}",
-                      xaxis_title="Date",
-                      yaxis_title="Price",
-                      xaxis_rangeslider_visible=False)
+    fig = create_candlestick_chart(data, crossovers, explanations)
     st.plotly_chart(fig)
 
-    # Step 4: Fetch news around golden and dead cross dates
-    golden_dates = stock_data[stock_data['Golden Cross']].index
-    dead_dates = stock_data[stock_data['Dead Cross']].index
-
-    golden_news = get_news_around_dates(ticker, golden_dates)
-    dead_news = get_news_around_dates(ticker, dead_dates)
-
-    # Step 5: Generate explanations for reversals
-    golden_explanations = get_explanations(golden_news)
-    dead_explanations = get_explanations(dead_news)
-
-    # Step 6: Annotate the chart with explanations
-    for i, date in enumerate(golden_dates):
-        fig.add_annotation(x=date, y=stock_data.loc[date]['High'],
-                           text=f"🡅 {golden_explanations[i]}",
-                           showarrow=True, arrowhead=1, arrowsize=1, font=dict(color="green"))
-
-    for i, date in enumerate(dead_dates):
-        fig.add_annotation(x=date, y=stock_data.loc[date]['Low'],
-                           text=f"🡇 {dead_explanations[i]}",
-                           showarrow=True, arrowhead=1, arrowsize=1, font=dict(color="red"))
-
-    # Display the updated chart with explanations
-    st.plotly_chart(fig)
+    st.subheader('Trend Reversals')
+    for i, (cross_type, date) in enumerate(crossovers):
+        st.write(f"{cross_type.capitalize()} Cross on {date.date()}: {explanations[i]}")
