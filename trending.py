@@ -12,7 +12,7 @@ import pytz
 import ta
 
 # Initialize Anthropic client
-anthropic = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
 def get_stock_data(ticker):
     stock = yf.Ticker(ticker)
