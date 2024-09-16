@@ -44,6 +44,7 @@ def get_news(ticker, date):
     end_date = date.replace(tzinfo=pytz.UTC) + timedelta(days=7)
     stock = yf.Ticker(ticker)
     news = stock.news
+    st.write(news)
     filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=pytz.UTC) <= end_date]
     return filtered_news
 
