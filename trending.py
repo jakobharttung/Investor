@@ -65,7 +65,10 @@ def create_candlestick_chart(data, crossovers, explanations):
     fig.update_layout(title=f'{ticker} Stock Price', xaxis_title='Date', yaxis_title='Price')
     return fig
 
-# In the main Streamlit app section:
+st.title('Stock Trend Analysis')
+
+ticker = st.text_input('Enter Stock Ticker:', value='AAPL')
+
 if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
