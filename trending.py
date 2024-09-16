@@ -37,6 +37,30 @@ def identify_crossovers(data):
               data['SMA20'].iloc[i] < data['SMA50'].iloc[i]):
             crossovers.append(('death', data.index[i]))
     return crossovers
+def get_news(ticker, date):
+    start_date = date - timedelta(days=7)
+    end_date = date + timedelta(days=7)
+    stock = yf.Ticker(ticker)
+    news = stock.news
+    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
+    return filtered_news
+
+def analyze_reversal(ticker, reversal_type, date, news):
+    prompt = f"""As a financial investor, analyze the {reversal_type} cross for {ticker} stock on {date}. 
+    Consider the following news items:
+    {news}
+    
+    Provide a concise explanation for this stock reversal, including both quantitative and qualitative factors. 
+    Focus on the most relevant information and limit your response to 2-3 sentences."""
+
+    response = anthropic.messages.create(
+        model="claude-3-sonnet-20240229",
+        max_tokens=150,
+        system="You are a financial investor, respond with facts and focused messages",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    
+    return response.content[0].text.replace("'", "\\'")
 
 def create_candlestick_chart(data, crossovers, explanations):
     fig = go.Figure(data=[go.Candlestick(x=data.index,
