@@ -13,107 +13,117 @@ import pytz
 anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
+# Function to get stock data
 def get_stock_data(ticker, period="2y"):
     stock = yf.Ticker(ticker)
     data = stock.history(period=period)
     return data
 
+# Function to calculate moving averages
 def calculate_moving_averages(data, short_window=50, long_window=200):
     data['SMA50'] = data['Close'].rolling(window=short_window).mean()
     data['SMA200'] = data['Close'].rolling(window=long_window).mean()
     return data
 
-def identify_crossovers(data):
+# Function to identify golden and death crosses
+def identify_crosses(data):
     data['Golden_Cross'] = (data['SMA50'] > data['SMA200']) & (data['SMA50'].shift(1) <= data['SMA200'].shift(1))
     data['Death_Cross'] = (data['SMA50'] < data['SMA200']) & (data['SMA50'].shift(1) >= data['SMA200'].shift(1))
     return data
 
-def create_candlestick_chart(data, crossovers):
-    fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.03, subplot_titles=(f"{ticker} Stock Price"))
+# Function to create candlestick chart with crosses
+def create_chart(data):
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.03, subplot_titles=(f'{ticker} Stock Price'))
 
     fig.add_trace(go.Candlestick(x=data.index,
                                  open=data['Open'],
                                  high=data['High'],
                                  low=data['Low'],
                                  close=data['Close'],
-                                 name="Candlesticks"))
+                                 name='Price'))
 
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], name="50-day SMA", line=dict(color='blue', width=1.5)))
-    fig.add_trace(go.Scatter(x=data.index, y=data['SMA200'], name="200-day SMA", line=dict(color='red', width=1.5)))
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], name='50 Day MA', line=dict(color='blue', width=1.5)))
+    fig.add_trace(go.Scatter(x=data.index, y=data['SMA200'], name='200 Day MA', line=dict(color='red', width=1.5)))
 
-    for idx, row in crossovers[crossovers['Golden_Cross']].iterrows():
-        fig.add_annotation(x=idx, y=row['Low'], text="↑", showarrow=False, font=dict(size=20, color="green"))
+    golden_crosses = data[data['Golden_Cross']]
+    death_crosses = data[data['Death_Cross']]
 
-    for idx, row in crossovers[crossovers['Death_Cross']].iterrows():
-        fig.add_annotation(x=idx, y=row['High'], text="↓", showarrow=False, font=dict(size=20, color="red"))
+    fig.add_trace(go.Scatter(x=golden_crosses.index, y=golden_crosses['Low'],
+                             mode='markers', name='Golden Cross',
+                             marker=dict(symbol='triangle-up', size=10, color='green')))
 
-    fig.update_layout(height=600, width=1000, title_text=f"{ticker} Stock Analysis")
+    fig.add_trace(go.Scatter(x=death_crosses.index, y=death_crosses['High'],
+                             mode='markers', name='Death Cross',
+                             marker=dict(symbol='triangle-down', size=10, color='red')))
+
+    fig.update_layout(title=f'{ticker} Stock Analysis', xaxis_rangeslider_visible=False)
     return fig
 
+# Function to get company information
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
-    return info
-
-def get_company_news(ticker, start_date, end_date):
-    stock = yf.Ticker(ticker)
     news = stock.news
-    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
-    return filtered_news
+    return info, news
 
-def analyze_reversal(ticker, date, crossover_type, company_info, news):
-    prompt = f"""As a financial investor, analyze the {crossover_type} that occurred on {date} for {ticker}. 
-    Consider the following company information and relevant news:
+# Function to analyze crosses
+def analyze_cross(cross_date, cross_type, company_info, news):
+    three_months_before = cross_date - timedelta(days=90)
+    relevant_news = [n for n in news if three_months_before <= datetime.fromtimestamp(n['providerPublishTime'], pytz.UTC) <= cross_date]
+    
+    prompt = f"""
+    Analyze the following {cross_type} that occurred on {cross_date.strftime('%Y-%m-%d')} for the company {company_info['longName']}.
+    Consider the following information and news from the three months preceding the cross:
 
     Company Information:
     {company_info}
 
     Relevant News:
-    {news}
+    {relevant_news}
 
-    Provide a focused explanation for this stock trend reversal, including notable events, facts, or company communications that could explain the change. 
-    Avoid technical jargon about crossovers and focus on fundamental factors that might have influenced the stock's direction.
-    Limit your response to 3-4 sentences."""
+    Provide a short explanation of potential factors that might have influenced this {cross_type}.
+    Focus on notable events, facts, company communications, product announcements, investor events, M&A news, or strategy changes.
+    Avoid technical explanations about the cross itself being bullish or bearish.
+    """
 
     response = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
-        temperature=0.7,
-        system="You are a financial investor, respond with facts and focused messages.",
+        temperature=0,
+        system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": prompt}]
     )
     
     return response.content[0].text
 
-st.title("Stock Analysis App")
+# Streamlit app
+st.title('Stock Analysis App')
 
-ticker = st.text_input("Enter a stock ticker:", value="AAPL").upper()
+ticker = st.text_input('Enter Stock Ticker:', 'AAPL').upper()
 
 if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
-    data = identify_crossovers(data)
+    data = identify_crosses(data)
 
-    crossovers = data[(data['Golden_Cross'] | data['Death_Cross'])]
-
-    fig = create_candlestick_chart(data, crossovers)
+    fig = create_chart(data)
     st.plotly_chart(fig)
 
-    company_info = get_company_info(ticker)
-    start_date = data.index[0].to_pydatetime()
-    end_date = data.index[-1].to_pydatetime()
-    news = get_company_news(ticker, start_date, end_date)
+    company_info, news = get_company_info(ticker)
 
-    st.subheader("Trend Reversal Explanations")
+    st.subheader('Cross Analysis')
+    
+    golden_crosses = data[data['Golden_Cross']]
+    death_crosses = data[data['Death_Cross']]
 
-    for idx, row in crossovers.iterrows():
-        crossover_type = "Golden Cross" if row['Golden_Cross'] else "Death Cross"
-        date = idx.strftime("%Y-%m-%d")
-        
-        relevant_news = [item for item in news if abs((datetime.fromtimestamp(item['providerPublishTime']) - idx.to_pydatetime()).days) <= 7]
-        
-        explanation = analyze_reversal(ticker, date, crossover_type, company_info, relevant_news)
-        
-        st.write(f"**{crossover_type} on {date}:**")
+    for date, row in golden_crosses.iterrows():
+        explanation = analyze_cross(date, 'Golden Cross', company_info, news)
+        st.write(f"**Golden Cross on {date.strftime('%Y-%m-%d')}**")
+        st.write(explanation)
+        st.write("---")
+
+    for date, row in death_crosses.iterrows():
+        explanation = analyze_cross(date, 'Death Cross', company_info, news)
+        st.write(f"**Death Cross on {date.strftime('%Y-%m-%d')}**")
         st.write(explanation)
         st.write("---")
