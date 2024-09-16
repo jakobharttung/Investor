@@ -110,6 +110,7 @@ if ticker:
     st.plotly_chart(fig)
 
     company_info, news = get_company_info(ticker)
+    st.write(news)
 
     st.subheader('Cross Analysis')
     
