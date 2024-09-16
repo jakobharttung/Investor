@@ -63,7 +63,9 @@ def create_chart(data):
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
+    st.write(info)
     news = stock.news
+    st.write(news)
     return info, news
 
 # Function to analyze crosses
@@ -108,9 +110,9 @@ if ticker:
 
     fig = create_chart(data)
     st.plotly_chart(fig)
+    st.write("getting company info")
 
     company_info, news = get_company_info(ticker)
-    st.write(news)
 
     st.subheader('Cross Analysis')
     
