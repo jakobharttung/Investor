@@ -88,7 +88,7 @@ if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
     crossovers = identify_crossovers(data)
-
+    st.write(crossovers)
     explanations = []
     for cross_type, date in crossovers:
         news = get_news(ticker, date)
