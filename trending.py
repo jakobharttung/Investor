@@ -7,7 +7,7 @@ import anthropic
 from bs4 import BeautifulSoup
 import requests
 from datetime import datetime, timedelta
-import ta
+import pytz
 
 # Initialize Anthropic client
 anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
@@ -18,22 +18,18 @@ def get_stock_data(ticker, period="2y"):
     data = stock.history(period=period)
     return data
 
-def calculate_moving_averages(data):
-    data['SMA50'] = ta.trend.sma_indicator(data['Close'], window=50)
-    data['SMA200'] = ta.trend.sma_indicator(data['Close'], window=200)
+def calculate_moving_averages(data, short_window=50, long_window=200):
+    data['SMA50'] = data['Close'].rolling(window=short_window).mean()
+    data['SMA200'] = data['Close'].rolling(window=long_window).mean()
     return data
 
 def identify_crossovers(data):
-    crossovers = []
-    for i in range(1, len(data)):
-        if data['SMA50'].iloc[i-1] <= data['SMA200'].iloc[i-1] and data['SMA50'].iloc[i] > data['SMA200'].iloc[i]:
-            crossovers.append(('golden', data.index[i]))
-        elif data['SMA50'].iloc[i-1] >= data['SMA200'].iloc[i-1] and data['SMA50'].iloc[i] < data['SMA200'].iloc[i]:
-            crossovers.append(('death', data.index[i]))
-    return crossovers
+    data['Golden_Cross'] = (data['SMA50'] > data['SMA200']) & (data['SMA50'].shift(1) <= data['SMA200'].shift(1))
+    data['Death_Cross'] = (data['SMA50'] < data['SMA200']) & (data['SMA50'].shift(1) >= data['SMA200'].shift(1))
+    return data
 
 def create_candlestick_chart(data, crossovers):
-    fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.03, subplot_titles=(f"Candlestick Chart for {ticker}",))
+    fig = make_subplots(rows=1, cols=1, shared_xaxes=True, vertical_spacing=0.03, subplot_titles=(f"{ticker} Stock Price"))
 
     fig.add_trace(go.Candlestick(x=data.index,
                                  open=data['Open'],
@@ -45,16 +41,13 @@ def create_candlestick_chart(data, crossovers):
     fig.add_trace(go.Scatter(x=data.index, y=data['SMA50'], name="50-day SMA", line=dict(color='blue', width=1.5)))
     fig.add_trace(go.Scatter(x=data.index, y=data['SMA200'], name="200-day SMA", line=dict(color='red', width=1.5)))
 
-    for cross_type, date in crossovers:
-        color = 'green' if cross_type == 'golden' else 'red'
-        symbol = 'triangle-up' if cross_type == 'golden' else 'triangle-down'
-        fig.add_trace(go.Scatter(x=[date], y=[data.loc[date, 'Low'] if cross_type == 'golden' else data.loc[date, 'High']],
-                                 mode='markers',
-                                 marker=dict(symbol=symbol, size=15, color=color),
-                                 name=f"{cross_type.capitalize()} Cross"))
+    for idx, row in crossovers[crossovers['Golden_Cross']].iterrows():
+        fig.add_annotation(x=idx, y=row['Low'], text="↑", showarrow=False, font=dict(size=20, color="green"))
 
-    fig.update_layout(height=600, width=1000, title_text=f"Stock Analysis for {ticker}")
-    fig.update_xaxes(rangeslider_visible=False)
+    for idx, row in crossovers[crossovers['Death_Cross']].iterrows():
+        fig.add_annotation(x=idx, y=row['High'], text="↓", showarrow=False, font=dict(size=20, color="red"))
+
+    fig.update_layout(height=600, width=1000, title_text=f"{ticker} Stock Analysis")
     return fig
 
 def get_company_info(ticker):
@@ -68,9 +61,9 @@ def get_company_news(ticker, start_date, end_date):
     filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
     return filtered_news
 
-def get_explanation_for_crossover(ticker, cross_type, date, company_info, news):
-    prompt = f"""As a financial investor, analyze the {cross_type} cross that occurred on {date} for {ticker}. 
-    Consider the following company information and news around that time:
+def analyze_reversal(ticker, date, crossover_type, company_info, news):
+    prompt = f"""As a financial investor, analyze the {crossover_type} that occurred on {date} for {ticker}. 
+    Consider the following company information and relevant news:
 
     Company Information:
     {company_info}
@@ -78,14 +71,14 @@ def get_explanation_for_crossover(ticker, cross_type, date, company_info, news):
     Relevant News:
     {news}
 
-    Provide a concise explanation for this stock trend change, focusing on notable events, facts, or company communications that could explain the change. 
-    Avoid technical jargon about crossovers and instead focus on fundamental factors that might have influenced investor sentiment or the company's performance.
+    Provide a focused explanation for this stock trend reversal, including notable events, facts, or company communications that could explain the change. 
+    Avoid technical jargon about crossovers and focus on fundamental factors that might have influenced the stock's direction.
     Limit your response to 3-4 sentences."""
 
     response = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
-        temperature=0,
+        temperature=0.7,
         system="You are a financial investor, respond with facts and focused messages.",
         messages=[{"role": "user", "content": prompt}]
     )
@@ -99,24 +92,28 @@ ticker = st.text_input("Enter a stock ticker:", value="AAPL").upper()
 if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
-    crossovers = identify_crossovers(data)
-    
+    data = identify_crossovers(data)
+
+    crossovers = data[(data['Golden_Cross'] | data['Death_Cross'])]
+
     fig = create_candlestick_chart(data, crossovers)
     st.plotly_chart(fig)
 
     company_info = get_company_info(ticker)
-    
-    st.subheader("Trend Reversals and Explanations")
-    for cross_type, date in crossovers:
-        start_date = date - timedelta(days=30)
-        end_date = date + timedelta(days=30)
-        news = get_company_news(ticker, start_date, end_date)
-        
-        explanation = get_explanation_for_crossover(ticker, cross_type, date, company_info, news)
-        
-        st.markdown(f"**{cross_type.capitalize()} Cross on {date.date()}**")
-        st.write(explanation)
-        st.markdown("---")
+    start_date = data.index[0].to_pydatetime()
+    end_date = data.index[-1].to_pydatetime()
+    news = get_company_news(ticker, start_date, end_date)
 
-st.sidebar.markdown("## About This App")
-st.sidebar.write("This app provides stock analysis using technical indicators and AI-generated explanations for trend reversals.")
+    st.subheader("Trend Reversal Explanations")
+
+    for idx, row in crossovers.iterrows():
+        crossover_type = "Golden Cross" if row['Golden_Cross'] else "Death Cross"
+        date = idx.strftime("%Y-%m-%d")
+        
+        relevant_news = [item for item in news if abs((datetime.fromtimestamp(item['providerPublishTime']) - idx.to_pydatetime()).days) <= 7]
+        
+        explanation = analyze_reversal(ticker, date, crossover_type, company_info, relevant_news)
+        
+        st.write(f"**{crossover_type} on {date}:**")
+        st.write(explanation)
+        st.write("---")
