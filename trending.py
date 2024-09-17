@@ -64,7 +64,6 @@ def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
     news = stock.news
-    st.write(news)
     return info, news
 
 # Function to analyze crosses
@@ -86,7 +85,7 @@ def analyze_cross(cross_date, cross_type, company_info, news):
     Focus on notable events, facts, company communications, product announcements, investor events, M&A news, or strategy changes. We are looking for information that would explain the change in stock price
     Avoid technical explanations about the cross itself being bullish or bearish.
     """
-
+    st.write(prompt)
     response = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
@@ -103,6 +102,7 @@ st.title('Stock Analysis App')
 ticker = st.text_input('Enter Stock Ticker:', 'AAPL').upper()
 news = yf.Ticker("SAN.PA").news
 st.write(news)
+
 if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
