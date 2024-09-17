@@ -15,19 +15,10 @@ anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 # Initialize Anthropic client
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
-def get_stock_data(ticker, period="1y"):
+def get_stock_data(ticker):
     stock = yf.Ticker(ticker)
-    data = stock.history(period=period)
+    data = stock.history(period="1y")
     return data
-
-def plot_candlestick(data):
-    fig = go.Figure(data=[go.Candlestick(x=data.index,
-                open=data['Open'],
-                high=data['High'],
-                low=data['Low'],
-                close=data['Close'])])
-    fig.update_layout(title=f"Stock Price Chart", xaxis_title="Date", yaxis_title="Price")
-    return fig
 
 def identify_crossovers(data):
     macd = MACD(data['Close'])
@@ -44,19 +35,10 @@ def identify_crossovers(data):
     return crossovers
 
 def get_news(ticker, start_date, end_date):
-    stock = yf.Ticker("Sanofi")
+    stock = yf.Ticker(ticker)
     news = stock.news
-    
-    # Convert start_date and end_date to UTC timezone-aware datetime objects
-    utc = pytz.UTC
-    start_date = start_date.replace(tzinfo=utc)
-    end_date = end_date.replace(tzinfo=utc)
-    
-    filtered_news = [
-        item for item in news 
-        if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=utc) <= end_date
-    ]
-    return news
+    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
+    return filtered_news
 
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
@@ -69,67 +51,64 @@ def get_company_info(ticker):
         'balance_sheet': balance_sheet.to_dict()
     }
 
-def analyze_crossover(crossover_info, news, company_info):
+def analyze_crossover(crossover_date, direction, news, company_info):
     prompt = f"""
-    As a financial investor, analyze the following stock crossover event and related information:
+    As a financial investor, analyze the following information:
 
-    Crossover Event: {crossover_info}
-    
-    Recent News:
+    Crossover event on {crossover_date}, direction: {direction}
+
+    Recent news:
     {news}
-    
-    Company Information:
+
+    Company information:
     {company_info}
 
-    Please provide a focused explanation of notable events, facts, company communications such as product announcements, investor events, M&A news, or strategy changes that could explain this crossover. Avoid technical jargon about bullish or bearish moments, and instead focus on concrete business factors. Provide both quantitative and qualitative insights in your analysis.
+    Provide a focused explanation for this crossover event, considering notable events, facts, company communications, product announcements, investor events, M&A news, or strategy changes that could explain the crossover. Do not focus on technical analysis terminology.
+
+    Provide a concise response with quantitative and qualitative insights.
     """
 
     response = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
-        temperature=0,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert.",
         messages=[{"role": "user", "content": prompt}]
     )
-    
+
     return response.content[0].text
 
-st.title("Stock Analysis App")
+st.title("Investor Analysis App")
 
-ticker = st.text_input("Enter a stock ticker:", value="SAN.PA")
+ticker = st.text_input("Enter a stock ticker:")
 
 if ticker:
     data = get_stock_data(ticker)
-    
-    fig = plot_candlestick(data)
-    
     crossovers = identify_crossovers(data)
-    
+
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                    open=data['Open'],
+                    high=data['High'],
+                    low=data['Low'],
+                    close=data['Close'])])
+
     for date, direction in crossovers:
-        fig.add_annotation(
-            x=date,
-            y=data.loc[date, 'High'] if direction == 'up' else data.loc[date, 'Low'],
-            text="↑" if direction == 'up' else "↓",
-            showarrow=True,
-            arrowhead=2,
-            arrowsize=1,
-            arrowwidth=2,
-            arrowcolor="green" if direction == 'up' else "red"
-        )
-    
+        color = 'green' if direction == 'up' else 'red'
+        symbol = 'triangle-up' if direction == 'up' else 'triangle-down'
+        fig.add_trace(go.Scatter(x=[date], y=[data['Low'][date]],
+                                 mode='markers',
+                                 marker=dict(symbol=symbol, size=15, color=color),
+                                 showlegend=False))
+
     st.plotly_chart(fig)
-    
+
     company_info = get_company_info(ticker)
 
     for date, direction in crossovers:
-        start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=60)
-        end_date = date.replace(tzinfo=pytz.UTC)
-        news = get_news("Sanofi", start_date, end_date)
-        st.write(news)
-        crossover_info = f"Date: {date.strftime('%Y-%m-%d')}, Direction: {'Upward' if direction == 'up' else 'Downward'}"
-        analysis = analyze_crossover(crossover_info, news, company_info)
+        start_date = date - timedelta(days=60)
+        end_date = date
+        news = get_news(ticker, start_date.replace(tzinfo=pytz.UTC), end_date.replace(tzinfo=pytz.UTC))
         
-        st.subheader(f"Crossover on {date.strftime('%Y-%m-%d')} ({'Upward' if direction == 'up' else 'Downward'})")
+        analysis = analyze_crossover(date, direction, news, company_info)
+        
+        st.subheader(f"Crossover on {date.date()}, Direction: {direction}")
         st.write(analysis)
-
-st.sidebar.write("This app analyzes stock data and provides insights on trend changes.")
