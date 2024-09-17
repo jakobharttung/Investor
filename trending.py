@@ -2,46 +2,53 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import anthropic
 from bs4 import BeautifulSoup
 import requests
 from datetime import datetime, timedelta
+import anthropic
+from ta.trend import MACD
 import pytz
-from ta.trend import SMAIndicator
+
+# Retrieve Anthropic API key from Streamlit secrets
+anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 
 # Initialize Anthropic client
-anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
-# Function to get stock data
 def get_stock_data(ticker, period="18mo"):
     stock = yf.Ticker(ticker)
     data = stock.history(period=period)
     return data
 
-# Function to identify crossover events
+def plot_candlestick(data):
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'])])
+    fig.update_layout(title=f"Stock Price Chart", xaxis_title="Date", yaxis_title="Price")
+    return fig
+
 def identify_crossovers(data):
-    sma20 = SMAIndicator(close=data['Close'], window=20).sma_indicator()
-    sma50 = SMAIndicator(close=data['Close'], window=50).sma_indicator()
+    macd = MACD(data['Close'])
+    data['MACD'] = macd.macd()
+    data['Signal'] = macd.macd_signal()
     
     crossovers = []
     for i in range(1, len(data)):
-        if (sma20.iloc[i-1] <= sma50.iloc[i-1] and sma20.iloc[i] > sma50.iloc[i]):
+        if data['MACD'].iloc[i-1] < data['Signal'].iloc[i-1] and data['MACD'].iloc[i] > data['Signal'].iloc[i]:
             crossovers.append((data.index[i], 'up'))
-        elif (sma20.iloc[i-1] >= sma50.iloc[i-1] and sma20.iloc[i] < sma50.iloc[i]):
+        elif data['MACD'].iloc[i-1] > data['Signal'].iloc[i-1] and data['MACD'].iloc[i] < data['Signal'].iloc[i]:
             crossovers.append((data.index[i], 'down'))
     
-    return crossovers, sma20, sma50
+    return crossovers
 
-# Function to get news for a specific date range
 def get_news(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
     news = stock.news
-    filtered_news = [n for n in news if start_date <= datetime.fromtimestamp(n['providerPublishTime']) <= end_date]
+    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
     return filtered_news
 
-# Function to get company info
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
@@ -53,88 +60,66 @@ def get_company_info(ticker):
         'balance_sheet': balance_sheet.to_dict()
     }
 
-# Function to analyze crossover events
-def analyze_crossover(event, news, company_info):
+def analyze_crossover(crossover_info, news, company_info):
     prompt = f"""
-    Analyze the following stock crossover event and related information:
+    As a financial investor, analyze the following stock crossover event and related information:
 
-    Crossover Event:
-    Date: {event[0]}
-    Type: {event[1]}
-
+    Crossover Event: {crossover_info}
+    
     Recent News:
     {news}
-
+    
     Company Information:
     {company_info}
 
-    Please provide insights on notable events, facts, company communications, and their potential impact on the stock performance.
+    Please provide a focused explanation of notable events, facts, company communications such as product announcements, investor events, M&A news, or strategy changes that could explain this crossover. Avoid technical jargon about bullish or bearish moments, and instead focus on concrete business factors. Provide both quantitative and qualitative insights in your analysis.
     """
 
     response = client.messages.create(
         model="claude-3-sonnet-20240229",
-        max_tokens=1000,
+        max_tokens=300,
         temperature=0,
-        system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
+        system="You are a financial investor, respond with facts and focused messages as talking to a non expert.",
         messages=[{"role": "user", "content": prompt}]
     )
-
+    
     return response.content[0].text
 
-# Streamlit app
 st.title("Stock Analysis App")
 
-# Input for stock ticker
-ticker = st.text_input("Enter stock ticker:", "AAPL")
+ticker = st.text_input("Enter a stock ticker:", value="AAPL")
 
 if ticker:
-    # Get stock data
     data = get_stock_data(ticker)
-
-    # Identify crossovers
-    crossovers, sma20, sma50 = identify_crossovers(data)
-
-    # Create candlestick chart
-    fig = make_subplots(rows=1, cols=1, shared_xaxes=True)
-    fig.add_trace(go.Candlestick(x=data.index,
-                                 open=data['Open'],
-                                 high=data['High'],
-                                 low=data['Low'],
-                                 close=data['Close'],
-                                 name='Candlestick'))
-
-    # Add moving averages
-    fig.add_trace(go.Scatter(x=data.index, y=sma20, name='SMA20', line=dict(color='blue', width=1)))
-    fig.add_trace(go.Scatter(x=data.index, y=sma50, name='SMA50', line=dict(color='red', width=1)))
-
-    # Add crossover events
+    
+    fig = plot_candlestick(data)
+    
+    crossovers = identify_crossovers(data)
+    
     for date, direction in crossovers:
-        color = 'green' if direction == 'up' else 'red'
-        symbol = 'triangle-up' if direction == 'up' else 'triangle-down'
-        fig.add_trace(go.Scatter(x=[date], y=[data.loc[date, 'Low'] if direction == 'up' else data.loc[date, 'High']],
-                                 mode='markers',
-                                 marker=dict(symbol=symbol, size=10, color=color),
-                                 name=f'{direction.capitalize()} Crossover'))
-
-    fig.update_layout(title=f'{ticker} Stock Analysis', xaxis_rangeslider_visible=False)
+        fig.add_annotation(
+            x=date,
+            y=data.loc[date, 'High'] if direction == 'up' else data.loc[date, 'Low'],
+            text="↑" if direction == 'up' else "↓",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=2,
+            arrowcolor="green" if direction == 'up' else "red"
+        )
+    
     st.plotly_chart(fig)
-
-    # Analyze crossover events
-    st.subheader("Crossover Event Analysis")
-    for event in crossovers:
-        st.write(f"Crossover on {event[0]}: {event[1].capitalize()}")
+    
+    company_info = get_company_info(ticker)
+    
+    for date, direction in crossovers:
+        start_date = date - timedelta(days=60)
+        news = get_news(ticker, start_date, date)
         
-        # Get news for two months before the crossover
-        start_date = event[0] - timedelta(days=60)
-        news = get_news(ticker, start_date, event[0])
+        crossover_info = f"Date: {date.strftime('%Y-%m-%d')}, Direction: {'Upward' if direction == 'up' else 'Downward'}"
+        analysis = analyze_crossover(crossover_info, news, company_info)
         
-        # Get company info
-        company_info = get_company_info(ticker)
-        
-        # Analyze the crossover event
-        analysis = analyze_crossover(event, news, company_info)
+        st.subheader(f"Crossover on {date.strftime('%Y-%m-%d')} ({'Upward' if direction == 'up' else 'Downward'})")
         st.write(analysis)
-        st.write("---")
 
-else:
-    st.write("Please enter a stock ticker to begin analysis.")
+st.sidebar.write("This app analyzes stock data and provides insights on trend changes.")
