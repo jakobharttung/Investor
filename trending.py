@@ -9,7 +9,6 @@ import anthropic
 from ta.trend import MACD
 import pytz
 
-
 # Retrieve Anthropic API key from Streamlit secrets
 anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 
@@ -42,21 +41,14 @@ def identify_crossovers(data):
             crossovers.append((data.index[i], 'down'))
     
     return crossovers
-from datetime import datetime, timedelta
-import pytz
 
 def get_news(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
     news = stock.news
     
-    # Convert start_date and end_date to UTC timezone-aware datetimes
-    utc = pytz.UTC
-    start_date = start_date.replace(tzinfo=utc)
-    end_date = end_date.replace(tzinfo=utc)
-    
     filtered_news = [
         item for item in news 
-        if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=utc) <= end_date
+        if start_date <= datetime.fromtimestamp(item['providerPublishTime']).replace(tzinfo=pytz.UTC) <= end_date
     ]
     return filtered_news
 
@@ -103,7 +95,6 @@ ticker = st.text_input("Enter a stock ticker:", value="AAPL")
 
 if ticker:
     data = get_stock_data(ticker)
-    data.index = data.index.tz_localize('UTC')
     
     fig = plot_candlestick(data)
     
@@ -126,12 +117,11 @@ if ticker:
     company_info = get_company_info(ticker)
     
     st.subheader("Crossover Analysis")
-
-    for date, direction in crossovers:
-        start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=90)
-        end_date = date.replace(tzinfo=pytz.UTC)
-        news = get_news(ticker, start_date, end_date)
     
+    for date, direction in crossovers:
+        start_date = date - timedelta(days=90)
+        news = get_news(ticker, start_date, date)
+        
         analysis = analyze_crossover((date, direction), news, company_info)
         
         st.write(f"**Crossover on {date.date()} ({'Upward' if direction == 'up' else 'Downward'}):**")
