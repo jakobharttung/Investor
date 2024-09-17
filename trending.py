@@ -20,7 +20,7 @@ def get_stock_data(ticker, period="2y"):
     return data
 
 # Function to calculate moving averages
-def calculate_moving_averages(data, short_window=20, long_window=100):
+def calculate_moving_averages(data, short_window=10, long_window=50):
     data['SMA50'] = data['Close'].rolling(window=short_window).mean()
     data['SMA200'] = data['Close'].rolling(window=long_window).mean()
     return data
