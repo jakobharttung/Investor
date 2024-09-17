@@ -15,7 +15,7 @@ anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 # Initialize Anthropic client
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
-def get_stock_data(ticker, period="18mo"):
+def get_stock_data(ticker, period="1y"):
     stock = yf.Ticker(ticker)
     data = stock.history(period=period)
     return data
