@@ -120,7 +120,7 @@ if ticker:
     st.plotly_chart(fig)
     
     company_info = get_company_info(ticker)
-    
+    st.write(company_info)
     for date, direction in crossovers:
         start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=60)
         end_date = date.replace(tzinfo=pytz.UTC)
