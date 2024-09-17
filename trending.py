@@ -15,7 +15,7 @@ anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
 # Initialize Anthropic client
 client = anthropic.Anthropic(api_key=anthropic_api_key)
 
-def get_stock_data(ticker, period="1y"):
+def get_stock_data(ticker, period="18mo"):
     stock = yf.Ticker(ticker)
     data = stock.history(period=period)
     return data
@@ -46,7 +46,16 @@ def identify_crossovers(data):
 def get_news(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
     news = stock.news
-    filtered_news = [item for item in news if start_date <= datetime.fromtimestamp(item['providerPublishTime']) <= end_date]
+    
+    # Convert start_date and end_date to UTC timezone-aware datetime objects
+    utc = pytz.UTC
+    start_date = start_date.replace(tzinfo=utc)
+    end_date = end_date.replace(tzinfo=utc)
+    
+    filtered_news = [
+        item for item in news 
+        if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=utc) <= end_date
+    ]
     return filtered_news
 
 def get_company_info(ticker):
@@ -87,7 +96,7 @@ def analyze_crossover(crossover_info, news, company_info):
 
 st.title("Stock Analysis App")
 
-ticker = st.text_input("Enter a stock ticker:", value="SAN.PA")
+ticker = st.text_input("Enter a stock ticker:", value="AAPL")
 
 if ticker:
     data = get_stock_data(ticker)
@@ -113,8 +122,9 @@ if ticker:
     company_info = get_company_info(ticker)
     
     for date, direction in crossovers:
-        start_date = date - timedelta(days=60)
-        news = get_news(ticker, start_date, date)
+        start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=60)
+        end_date = date.replace(tzinfo=pytz.UTC)
+        news = get_news(ticker, start_date, end_date)
         
         crossover_info = f"Date: {date.strftime('%Y-%m-%d')}, Direction: {'Upward' if direction == 'up' else 'Downward'}"
         analysis = analyze_crossover(crossover_info, news, company_info)
