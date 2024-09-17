@@ -44,7 +44,7 @@ def identify_crossovers(data):
     return crossovers
 
 def get_news(ticker, start_date, end_date):
-    stock = yf.Ticker(ticker)
+    stock = yf.Ticker("Sanofi")
     news = stock.news
     
     # Convert start_date and end_date to UTC timezone-aware datetime objects
