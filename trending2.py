@@ -96,7 +96,7 @@ def analyze_crossover(event_date, event_type, news, company_info):
     return response.content[0].text
 
 # Main app
-ticker = st.text_input("Enter a stock ticker:", value="AAPL")
+ticker = st.text_input("Enter a stock ticker:", value="SAN.PA")
 
 if ticker:
     # Get stock data
