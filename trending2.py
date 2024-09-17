@@ -134,7 +134,7 @@ if ticker:
         start_date = date.replace(tzinfo=None) - timedelta(days=60)
         end_date = date.replace(tzinfo=None)
         news = get_company_news(ticker, start_date, end_date)
-        
+        st.write(news)
         analysis = analyze_crossover(date, event_type, news, company_info)
         
         st.write(f"**Event Date:** {date.strftime('%Y-%m-%d')}")
