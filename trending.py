@@ -45,6 +45,12 @@ def get_company_news(ticker, start_date, end_date):
     utc = pytz.UTC
     start_date = utc.localize(start_date)
     end_date = utc.localize(end_date)
+    st.write("new crossover")
+    st.write(start_date)
+    st.write(end_date)
+    test = news[0]
+    st.write(datetime.fromtimestamp(test['providerPublishTime'], tz=utc))
+    
     filtered_news = [n for n in news if start_date <= datetime.fromtimestamp(n['providerPublishTime'], tz=utc) <= end_date]
     return filtered_news
 
