@@ -63,8 +63,7 @@ def create_chart(data):
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
-    news = stock.news
-    return info, news
+    return info
 
 # Function to analyze crosses
 def analyze_cross(cross_date, cross_type, company_info, news):
@@ -99,9 +98,7 @@ def analyze_cross(cross_date, cross_type, company_info, news):
 # Streamlit app
 st.title('Stock Analysis App')
 
-ticker = st.text_input('Enter Stock Ticker:', 'AAPL').upper()
-news = yf.Ticker("SAN.PA").news
-st.write(news)
+ticker = st.text_input('Enter Stock Ticker:', 'SAN.PA').upper()
 
 if ticker:
     data = get_stock_data(ticker)
@@ -113,7 +110,8 @@ if ticker:
     st.write("getting company info")
 
     company_info, news = get_company_info(ticker)
-
+    news = yf.Ticker("SAN.PA").news
+    
     st.subheader('Cross Analysis')
     
     golden_crosses = data[data['Golden_Cross']]
