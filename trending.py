@@ -42,6 +42,7 @@ def identify_crossovers(data):
 def get_company_news(ticker, start_date, end_date):
     stock = yf.Ticker("Sanofi")
     news = stock.news
+    st.write(news[0])
     utc = pytz.UTC
     start_date = utc.localize(start_date)
     end_date = utc.localize(end_date)
@@ -89,7 +90,7 @@ def analyze_crossover(event_date, event_type, news, company_info):
     """
 
     response = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-5-sonnet-20240624",
         max_tokens=1000,
         temperature=0,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert.",
