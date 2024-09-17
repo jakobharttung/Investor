@@ -101,7 +101,7 @@ def analyze_cross(cross_date, cross_type, company_info, news):
 st.title('Stock Analysis App')
 
 ticker = st.text_input('Enter Stock Ticker:', 'AAPL').upper()
-news = yf.Ticker("goog").news
+news = yf.Ticker("SAN.PA").news
 st.write(news)
 if ticker:
     data = get_stock_data(ticker)
