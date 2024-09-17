@@ -87,7 +87,7 @@ def analyze_crossover(crossover_info, news, company_info):
 
 st.title("Stock Analysis App")
 
-ticker = st.text_input("Enter a stock ticker:", value="AAPL")
+ticker = st.text_input("Enter a stock ticker:", value="SAN.PA")
 
 if ticker:
     data = get_stock_data(ticker)
