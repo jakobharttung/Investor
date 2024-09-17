@@ -84,7 +84,7 @@ def analyze_crossover(event_date, event_type, news, company_info):
     """
 
     response = client.messages.create(
-        model="claude-3-5-sonnet-20240624",
+        model="claude-3-5-sonnet-20240620",
         max_tokens=1000,
         temperature=0,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert.",
