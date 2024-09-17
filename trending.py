@@ -56,7 +56,7 @@ def get_news(ticker, start_date, end_date):
         item for item in news 
         if start_date <= datetime.fromtimestamp(item['providerPublishTime'], tz=utc) <= end_date
     ]
-    return filtered_news
+    return news
 
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
@@ -124,7 +124,7 @@ if ticker:
     for date, direction in crossovers:
         start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=60)
         end_date = date.replace(tzinfo=pytz.UTC)
-        news = get_news(ticker)
+        news = get_news(ticker, start_date, end_date)
         st.write(news)
         crossover_info = f"Date: {date.strftime('%Y-%m-%d')}, Direction: {'Upward' if direction == 'up' else 'Downward'}"
         analysis = analyze_crossover(crossover_info, news, company_info)
