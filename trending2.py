@@ -40,12 +40,12 @@ def identify_crossovers(data):
 
 # Function to get news for a company
 def get_company_news(ticker, start_date, end_date):
-    stock = yf.Ticker(ticker)
-    name = stock.info['longName']
-    news = yf.Ticker(name).news
+    stock = yf.Ticker("Sanofi")
+    news = stock.news
     utc = pytz.UTC
     start_date = utc.localize(start_date)
     end_date = utc.localize(end_date)
+  
     filtered_news = [n for n in news if start_date <= datetime.fromtimestamp(n['providerPublishTime'], tz=utc) <= end_date]
     return filtered_news
 
@@ -84,7 +84,7 @@ def analyze_crossover(event_date, event_type, news, company_info):
     """
 
     response = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-5-sonnet-20240620",
         max_tokens=1000,
         temperature=0,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert.",
@@ -134,7 +134,6 @@ if ticker:
         start_date = date.replace(tzinfo=None) - timedelta(days=60)
         end_date = date.replace(tzinfo=None)
         news = get_company_news(ticker, start_date, end_date)
-        st.write(news)
         analysis = analyze_crossover(date, event_type, news, company_info)
         
         st.write(f"**Event Date:** {date.strftime('%Y-%m-%d')}")
