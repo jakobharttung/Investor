@@ -63,7 +63,7 @@ def create_chart(data):
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
-    news = stock.news
+    news = stock.get_news()
     st.write("getting news")
     st.write(news)
     return info, news
