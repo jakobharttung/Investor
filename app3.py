@@ -69,7 +69,7 @@ if company:
         financials = stock.financials
         info = stock.info
         news = stock.news
-
+        str.write('news')
         # Sentiment analysis
         sentiment_prompt = f"Perform a sentiment analysis on the following financial data, company info, and news for {ticker}: {financials}, {info}, {news}. Provide a short summary of the sentiment."
         sentiment = get_llm_response(sentiment_prompt)
