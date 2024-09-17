@@ -63,8 +63,7 @@ def create_chart(data):
 def get_company_info(ticker):
     stock = yf.Ticker(ticker)
     info = stock.info
-    news = stock.get_news()
-    st.write("getting news")
+    news = stock.news
     st.write(news)
     return info, news
 
@@ -102,7 +101,8 @@ def analyze_cross(cross_date, cross_type, company_info, news):
 st.title('Stock Analysis App')
 
 ticker = st.text_input('Enter Stock Ticker:', 'AAPL').upper()
-
+news = yf.Ticker("goog").news
+st.write(news)
 if ticker:
     data = get_stock_data(ticker)
     data = calculate_moving_averages(data)
