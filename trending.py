@@ -50,11 +50,11 @@ def create_chart(data):
 
     fig.add_trace(go.Scatter(x=golden_crosses.index, y=golden_crosses['Low'],
                              mode='markers', name='Golden Cross',
-                             marker=dict(symbol='triangle-up', size=10, color='green')))
+                             marker=dict(symbol='triangle-up', size=20, color='green')))
 
     fig.add_trace(go.Scatter(x=death_crosses.index, y=death_crosses['High'],
                              mode='markers', name='Death Cross',
-                             marker=dict(symbol='triangle-down', size=10, color='red')))
+                             marker=dict(symbol='triangle-down', size=20, color='red')))
 
     fig.update_layout(title=f'{ticker} Stock Analysis', xaxis_rangeslider_visible=False)
     return fig
