@@ -42,6 +42,7 @@ def identify_crossovers(data):
 def get_company_news(ticker, start_date, end_date):
     stock = yf.Ticker("Sanofi")
     news = stock.news
+    st.write(news)
     utc = pytz.UTC
     start_date = utc.localize(start_date)
     end_date = utc.localize(end_date)
@@ -133,7 +134,6 @@ if ticker:
         start_date = date.replace(tzinfo=None) - timedelta(days=60)
         end_date = date.replace(tzinfo=None)
         news = get_company_news(ticker, start_date, end_date)
-        st.write(news)
         analysis = analyze_crossover(date, event_type, news, company_info)
         
         st.write(f"**Event Date:** {date.strftime('%Y-%m-%d')}")
