@@ -42,10 +42,7 @@ def identify_crossovers(data):
 def get_company_news(ticker, start_date, end_date):
     stock = yf.Ticker(ticker)
     name = stock.info['longName']
-    st.write("company name is:")
-    st.write(name)
     news = yf.Ticker(name).news
-    st.write(news)
     utc = pytz.UTC
     start_date = utc.localize(start_date)
     end_date = utc.localize(end_date)
