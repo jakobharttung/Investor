@@ -109,7 +109,7 @@ if ticker:
     st.plotly_chart(fig)
     st.write("getting company info")
 
-    company_info, news = get_company_info(ticker)
+    company_info = get_company_info(ticker)
     news = yf.Ticker("SAN.PA").news
     
     st.subheader('Cross Analysis')
