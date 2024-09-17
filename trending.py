@@ -124,7 +124,7 @@ if ticker:
     for date, direction in crossovers:
         start_date = date.replace(tzinfo=pytz.UTC) - timedelta(days=60)
         end_date = date.replace(tzinfo=pytz.UTC)
-        news = get_news(ticker, start_date, end_date)
+        news = get_news(ticker)
         st.write(news)
         crossover_info = f"Date: {date.strftime('%Y-%m-%d')}, Direction: {'Upward' if direction == 'up' else 'Downward'}"
         analysis = analyze_crossover(crossover_info, news, company_info)
