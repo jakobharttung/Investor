@@ -119,7 +119,7 @@ if ticker:
             y=data.loc[date, 'High'] if event_type == 'up' else data.loc[date, 'Low'],
             text='↑' if event_type == 'up' else '↓',
             showarrow=False,
-            font=dict(size=40, color='blue' if event_type == 'up' else 'black')
+            font=dict(size=20, color='blue' if event_type == 'up' else 'black')
         )
     
     # Display the chart
