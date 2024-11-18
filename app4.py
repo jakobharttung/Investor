@@ -1,40 +1,42 @@
 import streamlit as st
 import yfinance as yf
-import plotly.graph_objects as go
-from anthropic import Anthropic
+import anthropic
 import os
 from bs4 import BeautifulSoup
-import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 # Initialize Anthropic client
-anthropic = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+client = anthropic.Anthropic(api_key=anthropic_api_key)
 
 def get_tickers(company):
-    prompt = f"""As a financial investor, provide a list of stock tickers for {company} and 5 other competitors in the same industry with comparable size and strategy. Format the response as a comma-separated list of tickers only."""
+    prompt = f"As a financial investor, provide the stock ticker for {company} and 5 other tickers for competitors in the same industry of comparable size and strategy. Format the response as a comma-separated list of tickers only."
     
-    response = anthropic.messages.create(
+    message = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
         system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[
+            {"role": "user", "content": prompt}
+        ]
     )
     
-    tickers = response.content[0].text.strip().split(',')
+    tickers = message.content[0].text.strip().split(',')
     return [ticker.strip() for ticker in tickers]
 
 def get_stock_data(tickers, period='5y'):
     data = {}
     for ticker in tickers:
         stock = yf.Ticker(ticker)
-        hist = stock.history(period=period)
-        data[ticker] = hist[['Open', 'High', 'Low', 'Close']]
+        data[ticker] = stock.history(period=period)
     return data
 
 def plot_stock_data(data, period='5y'):
     fig = go.Figure()
+    
     for ticker, df in data.items():
-        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name=ticker, mode='lines'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], name=ticker))
     
     fig.update_layout(
         title='Stock Price Comparison',
@@ -65,115 +67,33 @@ def analyze_ticker(ticker):
     info = stock.info
     news = stock.news
     
-    # Prepare data for sentiment analysis
-    financial_summary = financials.to_json()
-    info_summary = str(info)
-    news_summary = str(news)
-    
     # Sentiment analysis
-    sentiment_prompt = f"""As a financial investor, analyze the sentiment for {ticker} based on the following data:
-    Financials: {financial_summary}
-    Info: {info_summary}
-    News: {news_summary}
-    Provide a brief sentiment analysis focusing on key factors affecting the stock."""
+    sentiment_prompt = f"Analyze the sentiment of the following financial data and news for {ticker}:\n\nFinancials: {financials}\n\nInfo: {info}\n\nNews: {news}\n\nProvide a concise sentiment analysis."
     
-    sentiment_response = anthropic.messages.create(
+    sentiment_message = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
         system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": sentiment_prompt}]
+        messages=[
+            {"role": "user", "content": sentiment_prompt}
+        ]
     )
     
-    sentiment = sentiment_response.content[0].text.strip()
+    sentiment = sentiment_message.content[0].text
     
     # Analyst consensus
-    consensus_prompt = f"""As a financial investor, provide the analyst consensus for {ticker} based on available data and market trends. Include any relevant ratings or price targets."""
+    consensus_prompt = f"As a financial analyst, provide the current analyst consensus for {ticker} based on available market data and recent performance."
     
-    consensus_response = anthropic.messages.create(
+    consensus_message = client.messages.create(
         model="claude-3-sonnet-20240229",
         max_tokens=300,
         system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": consensus_prompt}]
+        messages=[
+            {"role": "user", "content": consensus_prompt}
+        ]
     )
     
-    consensus = consensus_response.content[0].text.strip()
+    consensus = consensus_message.content[0].text
     
     # Overall analysis
-    analysis_prompt = f"""As a financial investor, provide an overall analysis of {ticker} within its industry. Include key financial metrics, growth prospects, and competitive position. Provide specific numbers where relevant."""
-    
-    analysis_response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=500,
-        system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": analysis_prompt}]
-    )
-    
-    analysis = analysis_response.content[0].text.strip()
-    
-    return {
-        'sentiment': sentiment,
-        'consensus': consensus,
-        'analysis': analysis
-    }
-
-def generate_recommendation(company, analyses):
-    prompt = f"""As a financial investor, based on the following analyses for {company} and its competitors, provide an investment recommendation (Buy, Hold, or Sell) with a brief explanation:
-
-    {analyses}
-
-    Format the response as:
-    Recommendation: [Buy/Hold/Sell]
-    Explanation: [Your explanation here]
-    """
-    
-    response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=500,
-        system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    return response.content[0].text.strip()
-
-def get_key_metrics(company, recommendation):
-    prompt = f"""As a financial investor, based on the following recommendation for {company}, provide the key financial metrics supporting this recommendation:
-
-    {recommendation}
-
-    List 3-5 specific quantitative metrics with their values and a brief explanation of their significance."""
-    
-    response = anthropic.messages.create(
-        model="claude-3-sonnet-20240229",
-        max_tokens=500,
-        system="You are a financial investor, respond with facts and focused messages.",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    
-    return response.content[0].text.strip()
-
-# Streamlit app
-st.title("Investor Analysis App")
-
-company = st.text_input("Enter a company name:")
-
-if company:
-    with st.spinner("Analyzing..."):
-        tickers = get_tickers(company)
-        stock_data = get_stock_data(tickers)
-        
-        st.subheader("Stock Price Comparison")
-        fig = plot_stock_data(stock_data)
-        st.plotly_chart(fig)
-        
-        analyses = {}
-        for ticker in tickers:
-            analyses[ticker] = analyze_ticker(ticker)
-        
-        recommendation = generate_recommendation(company, str(analyses))
-        key_metrics = get_key_metrics(company, recommendation)
-        
-        st.subheader("Investment Recommendation")
-        st.write(recommendation)
-        
-        st.subheader("Key Financial Metrics")
-        st.write(key_metrics)
+    analysis_prompt = f"Provide an overall
