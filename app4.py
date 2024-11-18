@@ -18,7 +18,7 @@ def get_competitor_tickers(company_name):
     Format the response as a comma-separated list of tickers only."""
     
     message = client.messages.create(
-        model="claude-3-5-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=300,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
@@ -90,7 +90,7 @@ def analyze_company(ticker):
     Provide a clear sentiment analysis with specific metrics and trends."""
     
     sentiment = client.messages.create(
-        model="claude-3-5-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=500,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
@@ -101,7 +101,7 @@ def analyze_company(ticker):
     consensus_prompt = f"As a financial investor, what is the current analyst consensus for {ticker} based on the provided data?"
     
     consensus = client.messages.create(
-        model="claude-3-5-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=300,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
@@ -128,7 +128,7 @@ def generate_recommendation(company_analysis, competitor_analyses):
     and key supporting metrics."""
     
     recommendation = client.messages.create(
-        model="claude-3-5-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=800,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
