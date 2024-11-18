@@ -25,7 +25,9 @@ def get_competitor_tickers(company_name):
         messages=[{"role": "user", "content": prompt}]
     )
     
-    tickers = message.content.strip().split(',')
+    # Corrected response handling
+    response_content = message.content[0].text  # Access the text content correctly
+    tickers = response_content.strip().split(',')
     return [ticker.strip() for ticker in tickers]
 
 def get_stock_data(tickers, period='5y'):
@@ -111,8 +113,8 @@ def analyze_company(ticker):
     return {
         'financials': financials,
         'info': info,
-        'sentiment': sentiment.content,
-        'consensus': consensus.content
+        'sentiment': sentiment.content[0].text,  # Corrected response handling
+        'consensus': consensus.content[0].text   # Corrected response handling
     }
 
 def generate_recommendation(company_analysis, competitor_analyses):
@@ -135,7 +137,7 @@ def generate_recommendation(company_analysis, competitor_analyses):
         messages=[{"role": "user", "content": prompt}]
     )
     
-    return recommendation.content
+    return recommendation.content[0].text  # Corrected response handling
 
 # Streamlit UI
 st.title("Investment Analysis App")
