@@ -13,7 +13,7 @@ client = anthropic.Client(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
 def get_competitor_tickers(company_name):
     message = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-sonnet-20241022",
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{
             "role": "user",
@@ -80,7 +80,7 @@ def analyze_company(ticker):
     # Sentiment analysis
     sentiment_prompt = f"As a financial analyst, analyze the sentiment of recent news and financial data for {ticker}. Consider market perception and momentum."
     sentiment = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-sonnet-20241022",
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": sentiment_prompt}]
     )
@@ -88,7 +88,7 @@ def analyze_company(ticker):
     # Analyst consensus
     consensus_prompt = f"As a financial analyst, provide the current analyst consensus for {ticker} based on available financial data and market conditions."
     consensus = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-sonnet-20241022",
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": consensus_prompt}]
     )
@@ -96,7 +96,7 @@ def analyze_company(ticker):
     # Overall analysis
     analysis_prompt = f"As a financial analyst, provide a detailed analysis of {ticker}'s financial performance and position within its industry, including key metrics and comparisons."
     analysis = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-sonnet-20241022",
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": analysis_prompt}]
     )
@@ -115,7 +115,7 @@ def generate_recommendation(company, analyses):
     Format: [RECOMMENDATION]: explanation"""
     
     recommendation = client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-3-sonnet-20241022",
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": recommendation_prompt}]
     )
@@ -152,7 +152,7 @@ def main():
             # Get key metrics
             metrics_prompt = f"As a financial analyst, list the key financial metrics supporting the recommendation for {company}."
             metrics = client.messages.create(
-                model="claude-3-sonnet-20240229",
+                model="claude-3-sonnet-20241022",
                 system="You are a financial investor, respond with facts and focused messages",
                 messages=[{"role": "user", "content": metrics_prompt}]
             )
