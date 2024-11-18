@@ -21,7 +21,7 @@ def get_competitor_tickers(company_name):
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": message}]
     )
-    
+    st.write(response.content)
     tickers = json.loads(response.content[0].text)
     return tickers
 
