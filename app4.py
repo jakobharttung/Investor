@@ -1,29 +1,32 @@
 import streamlit as st
 import yfinance as yf
+import anthropic
+import pandas as pd
 import plotly.graph_objects as go
 from bs4 import BeautifulSoup
-import pandas as pd
-from anthropic import Anthropic
-import json
+import requests
+from datetime import datetime, timedelta
 
 # Initialize Anthropic client
-anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
+client = anthropic.Anthropic(
+    api_key=st.secrets["ANTHROPIC_API_KEY"]
+)
 
 def get_competitor_tickers(company_name):
-    message = f"""As a financial investor, please provide the stock ticker for {company_name} 
-    and 5 other tickers of its main competitors with similar market cap and business strategy. 
-    Format the response as a JSON list of tickers only."""
+    prompt = f"""As a financial investor, please provide the stock ticker for {company_name} and 5 other tickers 
+    for its main competitors in the same industry with similar market cap and business strategy. 
+    Format the response as a comma-separated list of tickers only."""
     
-    response = anthropic.messages.create(
-        model="claude-3-5-sonnet-20241022",
+    message = client.messages.create(
+        model="claude-3-sonnet-20240122",
         max_tokens=300,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
-        messages=[{"role": "user", "content": message}]
+        messages=[{"role": "user", "content": prompt}]
     )
-    st.write(response.content)
-    tickers = json.loads(response.content[0].text)
-    return tickers
+    
+    tickers = message.content.strip().split(',')
+    return [ticker.strip() for ticker in tickers]
 
 def get_stock_data(tickers, period='5y'):
     data = {}
@@ -39,14 +42,17 @@ def create_stock_chart(data, period='5y'):
     fig = go.Figure()
     
     for ticker, df in data.items():
-        fig.add_trace(go.Scatter(x=df.index, y=df['Close'],
-                                mode='lines',
-                                name=ticker))
+        fig.add_trace(go.Scatter(
+            x=df.index,
+            y=df['Close'],
+            name=ticker,
+            mode='lines'
+        ))
     
     fig.update_layout(
-        title="Stock Price Comparison",
-        xaxis_title="Date",
-        yaxis_title="Price",
+        title='Stock Price Comparison',
+        xaxis_title='Date',
+        yaxis_title='Price',
         hovermode='x unified'
     )
     
@@ -70,6 +76,8 @@ def create_stock_chart(data, period='5y'):
 
 def analyze_company(ticker):
     stock = yf.Ticker(ticker)
+    
+    # Gather data
     financials = stock.financials
     info = stock.info
     news = stock.news
@@ -79,10 +87,10 @@ def analyze_company(ticker):
     Financials: {financials.to_dict()}
     Company Info: {info}
     Recent News: {news}
-    Provide a clear sentiment score and explanation."""
+    Provide a clear sentiment analysis with specific metrics and trends."""
     
-    sentiment_response = anthropic.messages.create(
-        model="claude-3-5-sonnet-20241022",
+    sentiment = client.messages.create(
+        model="claude-3-sonnet-20240122",
         max_tokens=500,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
@@ -90,11 +98,11 @@ def analyze_company(ticker):
     )
     
     # Analyst consensus
-    consensus_prompt = f"As a financial investor, what is the current analyst consensus for {ticker}? Provide specific ratings and price targets."
+    consensus_prompt = f"As a financial investor, what is the current analyst consensus for {ticker} based on the provided data?"
     
-    consensus_response = anthropic.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=500,
+    consensus = client.messages.create(
+        model="claude-3-sonnet-20240122",
+        max_tokens=300,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": consensus_prompt}]
@@ -103,30 +111,33 @@ def analyze_company(ticker):
     return {
         'financials': financials,
         'info': info,
-        'sentiment': sentiment_response.content[0].text,
-        'consensus': consensus_response.content[0].text
+        'sentiment': sentiment.content,
+        'consensus': consensus.content
     }
 
-def generate_recommendation(company_name, company_data, competitor_data):
-    recommendation_prompt = f"""As a financial investor, based on the following analysis:
-    Company: {company_name}
-    Company Data: {company_data}
-    Competitor Data: {competitor_data}
+def generate_recommendation(company_analysis, competitor_analyses):
+    prompt = f"""As a financial investor, based on the following analyses:
     
-    Provide a clear investment recommendation (Buy/Hold/Sell) with a detailed explanation 
-    and key financial metrics supporting the decision."""
+    Target Company ({company_analysis['ticker']}):
+    {company_analysis['data']}
     
-    recommendation_response = anthropic.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=1000,
+    Competitors:
+    {competitor_analyses}
+    
+    Provide a clear Buy, Hold, or Sell recommendation for {company_analysis['ticker']} with a detailed explanation 
+    and key supporting metrics."""
+    
+    recommendation = client.messages.create(
+        model="claude-3-sonnet-20240122",
+        max_tokens=800,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
-        messages=[{"role": "user", "content": recommendation_prompt}]
+        messages=[{"role": "user", "content": prompt}]
     )
     
-    return recommendation_response.content[0].text
+    return recommendation.content
 
-# Streamlit app
+# Streamlit UI
 st.title("Investment Analysis App")
 
 company_name = st.text_input("Enter Company Name:")
@@ -135,21 +146,23 @@ if company_name:
     # Get tickers
     tickers = get_competitor_tickers(company_name)
     
-    # Get stock data and create chart
+    # Get stock data
     stock_data = get_stock_data(tickers)
+    
+    # Display stock chart
     chart = create_stock_chart(stock_data)
     st.plotly_chart(chart)
     
-    # Analyze company and competitors
-    company_analysis = {}
+    # Analyze companies
+    analyses = {}
     for ticker in tickers:
-        company_analysis[ticker] = analyze_company(ticker)
+        analyses[ticker] = analyze_company(ticker)
     
     # Generate recommendation
+    company_ticker = tickers[0]  # Assuming first ticker is the target company
     recommendation = generate_recommendation(
-        company_name,
-        company_analysis[tickers[0]],  # Company analysis
-        {t: company_analysis[t] for t in tickers[1:]}  # Competitor analysis
+        {'ticker': company_ticker, 'data': analyses[company_ticker]},
+        {ticker: data for ticker, data in analyses.items() if ticker != company_ticker}
     )
     
     # Display recommendation
