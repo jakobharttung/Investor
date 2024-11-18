@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 
 # Initialize Anthropic client
-client = anthropic.Client(api_key=os.environ["ANTHROPIC_API_KEY"])
+client = anthropic.Client(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
 def get_competitor_tickers(company_name):
     message = client.messages.create(
