@@ -19,7 +19,7 @@ def get_competitor_tickers(company_name):
     
     message = client.messages.create(
         model="claude-3-5-sonnet-20241022",
-        max_tokens=300,
+        max_tokens=1000,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": prompt}]
@@ -93,7 +93,7 @@ def analyze_company(ticker):
     
     sentiment = client.messages.create(
         model="claude-3-5-sonnet-20241022",
-        max_tokens=500,
+        max_tokens=1000,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": sentiment_prompt}]
@@ -104,7 +104,7 @@ def analyze_company(ticker):
     
     consensus = client.messages.create(
         model="claude-3-5-sonnet-20241022",
-        max_tokens=300,
+        max_tokens=1000,
         temperature=0.2,
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": consensus_prompt}]
@@ -131,7 +131,7 @@ def generate_recommendation(company_analysis, competitor_analyses):
     
     recommendation = client.messages.create(
         model="claude-3-5-sonnet-20241022",
-        max_tokens=800,
+        max_tokens=1000,
         temperature=0.3,
         system="You are a financial investor, respond with facts and focused messages",
         messages=[{"role": "user", "content": prompt}]
