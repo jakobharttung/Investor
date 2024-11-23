@@ -1,172 +1,120 @@
 import streamlit as st
 import yfinance as yf
-import anthropic
 import pandas as pd
 import plotly.graph_objects as go
-from bs4 import BeautifulSoup
-import requests
 from datetime import datetime, timedelta
+import anthropic
+from bs4 import BeautifulSoup
+import json
 
 # Initialize Anthropic client
-client = anthropic.Anthropic(
-    api_key=st.secrets["ANTHROPIC_API_KEY"]
-)
+client = anthropic.Client(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-def get_competitor_tickers(company_name):
-    prompt = f"""As a financial investor, please provide the stock ticker for {company_name} and 5 other tickers 
-    for its main competitors in the same industry with similar market cap and business strategy. 
-    Format the response as a comma-separated list of tickers only."""
+def get_tickers_from_industry(industry):
+    prompt = f"""As a financial investment expert, please provide the stock tickers of the five most promising companies for investment in the {industry} industry. 
+    Consider market position, growth potential, and financial stability. 
+    Return only the tickers in a comma-separated format."""
     
     message = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-3-sonnet-20240229",
         max_tokens=1000,
-        temperature=0.2,
-        system="You are a financial investor, respond with facts and focused messages",
+        system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": prompt}]
     )
     
-    # Corrected response handling
-    response_content = message.content[0].text  # Access the text content correctly
-    tickers = response_content.strip().split(',')
-    return [ticker.strip() for ticker in tickers]
+    tickers = message.content[0].text.strip().split(',')
+    return [t.strip() for t in tickers]
 
-def get_stock_data(tickers, period='5y'):
-    data = {}
-    for ticker in tickers:
-        try:
-            stock = yf.Ticker(ticker)
-            data[ticker] = stock.history(period=period)
-        except:
-            st.error(f"Error retrieving data for {ticker}")
-    return data
-
-def create_stock_chart(data, period='5y'):
+def create_stock_chart(tickers, period='2y', interval='1wk'):
     fig = go.Figure()
-    
-    for ticker, df in data.items():
-        fig.add_trace(go.Scatter(
-            x=df.index,
-            y=df['Close'],
-            name=ticker,
-            mode='lines'
-        ))
+    for ticker in tickers:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period=period, interval=interval)
+        fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'],
+                                mode='lines', name=ticker))
     
     fig.update_layout(
-        title='Stock Price Comparison',
+        title='Stock Price History',
         xaxis_title='Date',
         yaxis_title='Price',
         hovermode='x unified'
     )
-    
-    # Add range slider and buttons
-    fig.update_layout(
-        xaxis=dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1m", step="month", stepmode="backward"),
-                    dict(count=6, label="6m", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(count=5, label="5y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ])
-            ),
-            rangeslider=dict(visible=True)
-        )
-    )
-    
     return fig
 
-def analyze_company(ticker):
-    stock = yf.Ticker(ticker)
+def analyze_stocks(tickers):
+    analysis_prompt = f"""As a financial analyst, please analyze these companies {', '.join(tickers)} and recommend the most promising investment.
+    Consider recent financial performance, market position, and growth prospects.
+    Provide a clear recommendation with brief justification."""
     
-    # Gather data
-    financials = stock.financials
-    info = stock.info
-    news = stock.news
-    
-    # Sentiment analysis
-    sentiment_prompt = f"""As a financial investor, analyze the sentiment of the following company data:
-    Financials: {financials.to_dict()}
-    Company Info: {info}
-    Recent News: {news}
-    Provide a clear sentiment analysis with specific metrics and trends."""
-    
-    sentiment = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+    message = client.messages.create(
+        model="claude-3-sonnet-20240229",
         max_tokens=1000,
-        temperature=0.3,
-        system="You are a financial investor, respond with facts and focused messages",
-        messages=[{"role": "user", "content": sentiment_prompt}]
+        system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
+        messages=[{"role": "user", "content": analysis_prompt}]
     )
     
-    # Analyst consensus
-    consensus_prompt = f"As a financial investor, what is the current analyst consensus for {ticker} based on the provided data?"
-    
-    consensus = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
-        max_tokens=1000,
-        temperature=0.2,
-        system="You are a financial investor, respond with facts and focused messages",
-        messages=[{"role": "user", "content": consensus_prompt}]
-    )
-    
-    return {
-        'financials': financials,
-        'info': info,
-        'sentiment': sentiment.content[0].text,  # Corrected response handling
-        'consensus': consensus.content[0].text   # Corrected response handling
-    }
+    return message.content[0].text
 
-def generate_recommendation(company_analysis, competitor_analyses):
-    prompt = f"""As a financial investor, based on the following analyses:
+def technical_analysis(ticker_data):
+    prompt = f"""As a technical analyst, please identify five key technical patterns in this stock's price movement over the past year.
+    Consider support/resistance levels, trend lines, and classic patterns.
+    Format each pattern as: Pattern Name: Brief explanation"""
     
-    Target Company ({company_analysis['ticker']}):
-    {company_analysis['data']}
-    
-    Competitors:
-    {competitor_analyses}
-    
-    Provide a clear Buy, Hold, or Sell recommendation for {company_analysis['ticker']} with a detailed explanation 
-    and key supporting metrics."""
-    
-    recommendation = client.messages.create(
-        model="claude-3-5-sonnet-20241022",
+    message = client.messages.create(
+        model="claude-3-sonnet-20240229",
         max_tokens=1000,
-        temperature=0.3,
-        system="You are a financial investor, respond with facts and focused messages",
+        system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": prompt}]
     )
     
-    return recommendation.content[0].text  # Corrected response handling
+    return message.content[0].text
 
-# Streamlit UI
-st.title("Investment Analysis App")
+def main():
+    st.title('Industry Stock Analysis')
+    
+    industry = st.text_input('Enter Industry', value='semiconductors')
+    
+    if industry:
+        tickers = get_tickers_from_industry(industry)
+        
+        # Historical price chart
+        periods = ['1m', '3m', '6m', '1y', '2y', '5y']
+        selected_period = st.select_slider('Select Period', options=periods, value='2y')
+        
+        chart = create_stock_chart(tickers, period=selected_period)
+        st.plotly_chart(chart)
+        
+        # Stock analysis
+        analysis = analyze_stocks(tickers)
+        st.subheader('Investment Recommendation')
+        st.write(analysis)
+        
+        # Get recommended ticker (assuming it's the first mentioned in the analysis)
+        recommended_ticker = tickers[0]  # This should be extracted from analysis
+        
+        # Display financials
+        stock = yf.Ticker(recommended_ticker)
+        st.subheader(f'{recommended_ticker} Financial Summary')
+        financials = stock.financials
+        st.dataframe(financials.head())
+        
+        # Candlestick chart
+        hist = stock.history(period='1y', interval='1d')
+        fig = go.Figure(data=[go.Candlestick(x=hist.index,
+                                            open=hist['Open'],
+                                            high=hist['High'],
+                                            low=hist['Low'],
+                                            close=hist['Close'])])
+        
+        # Technical analysis
+        patterns = technical_analysis(hist)
+        st.subheader('Technical Analysis')
+        st.write(patterns)
+        
+        fig.update_layout(title=f'{recommended_ticker} Price Chart',
+                         xaxis_title='Date',
+                         yaxis_title='Price')
+        st.plotly_chart(fig)
 
-company_name = st.text_input("Enter Company Name:")
-
-if company_name:
-    # Get tickers
-    tickers = get_competitor_tickers(company_name)
-    
-    # Get stock data
-    stock_data = get_stock_data(tickers)
-    
-    # Display stock chart
-    chart = create_stock_chart(stock_data)
-    st.plotly_chart(chart)
-    
-    # Analyze companies
-    analyses = {}
-    for ticker in tickers:
-        analyses[ticker] = analyze_company(ticker)
-    
-    # Generate recommendation
-    company_ticker = tickers[0]  # Assuming first ticker is the target company
-    recommendation = generate_recommendation(
-        {'ticker': company_ticker, 'data': analyses[company_ticker]},
-        {ticker: data for ticker, data in analyses.items() if ticker != company_ticker}
-    )
-    
-    # Display recommendation
-    st.subheader("Investment Recommendation")
-    st.write(recommendation)
+if __name__ == "__main__":
+    main()
