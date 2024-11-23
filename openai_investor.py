@@ -20,7 +20,7 @@ def call_openai(prompt, system_message="You are a financial investor. Respond wi
                 {"role": "user", "content": prompt},
             ]
         )
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content  # Access the content attribute directly
     except Exception as e:
         st.error(f"OpenAI API error: {e}")
         return ""
