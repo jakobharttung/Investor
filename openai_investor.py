@@ -7,12 +7,13 @@ from datetime import datetime
 
 # Set up OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = openai.Client()  # Initialize OpenAI Client
 
 # Helper function to call OpenAI API
 def call_openai(prompt, system_message="You are a financial investor. Respond with facts and focused messages as talking to a non-expert."):
     try:
-        # Use OpenAI's ChatCompletion API
-        response = openai.ChatCompletion.create(
+        # Use OpenAI's latest chat completions API
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": system_message},
