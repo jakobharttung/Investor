@@ -57,14 +57,16 @@ if st.button("Get Top Stocks"):
             xaxis_title="Date",
             yaxis_title="Price",
             xaxis_rangeslider_visible=True,
-            xaxis=dict(rangeselector=dict(
-                buttons=list([
-                    dict(count=1, label="1wk", step="week", stepmode="backward"),
-                    dict(count=1, label="1mo", step="month", stepmode="backward"),
-                    dict(count=1, label="1y", step="year", stepmode="backward"),
-                    dict(step="all")
-                ])
-            )),
+            xaxis=dict(
+                rangeselector=dict(
+                    buttons=list([
+                        dict(count=7, label="1w", step="day", stepmode="backward"),  # 1 week = 7 days
+                        dict(count=30, label="1m", step="day", stepmode="backward"),  # 1 month = 30 days
+                        dict(count=365, label="1y", step="day", stepmode="backward"),  # 1 year = 365 days
+                        dict(step="all")  # Full range
+                    ])
+                )
+            ),
         )
         st.plotly_chart(fig)
 
