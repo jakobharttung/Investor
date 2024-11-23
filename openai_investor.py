@@ -2,7 +2,6 @@ import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
 import openai
-from bs4 import BeautifulSoup
 
 # Initialize the OpenAI client
 openai.api_key = 'your-api-key'
@@ -16,7 +15,7 @@ def main():
     industry = st.text_input("Enter an industry:", value="semiconductors")
     
     # Retrieve the stock tickers of the top five companies
-    response = client.chat.completions(
+    response = client.chat.completions.create(
         model="gpt-4.0-turbo",
         messages=[{
             "role": "system",
@@ -26,7 +25,7 @@ def main():
             "content": f"What are the top five promising companies in the {industry} industry?"
         }]
     )
-    tickers = parse_tickers(response.choices[0].message['content'])
+    tickers = parse_tickers(response['choices'][0]['message']['content'])
 
     # Retrieve historical data
     data = {ticker: yf.Ticker(ticker).history(period="2y", interval="1wk") for ticker in tickers}
@@ -58,22 +57,16 @@ def main():
     fig.update_layout(title=f"Candlestick chart for {top_stock}")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Perform technical analysis (Placeholder for actual implementation)
-    # analysis = perform_technical_analysis(daily_data)
-    # for pattern in analysis:
-    #     fig.add_annotation(x=pattern['date'], y=pattern['price'], text=pattern['name'], showarrow=True)
-
 def parse_tickers(response_text):
     # Parse response to extract tickers (placeholder)
-    soup = BeautifulSoup(response_text, 'html.parser')
-    return [a.text for a in soup.find_all('a')]
+    return response_text.split()  # Adjust this based on the actual output format
 
 def analyze_and_recommend(tickers):
     # Analyze tickers and recommend the best one (placeholder)
     for ticker in tickers:
         detailed_data = yf.Ticker(ticker).info
         # Call the language model to analyze data
-        response = client.chat.completions(
+        response = client.chat.completions.create(
             model="gpt-4.0-turbo",
             messages=[{
                 "role": "user",
