@@ -4,7 +4,7 @@ import plotly.graph_objs as go
 import openai
 
 # Initialize the OpenAI client
-openai.api_key = st.secrets('OPENAI_API_KEY)
+openai.api_key = st.secrets("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=openai.api_key)
 
 # Streamlit app layout
