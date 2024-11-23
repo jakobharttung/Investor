@@ -1,81 +1,90 @@
 import streamlit as st
 import yfinance as yf
 import plotly.graph_objs as go
+from bs4 import BeautifulSoup
+import requests
 import openai
 
-# Initialize the OpenAI client
+# Initialize OpenAI client
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 client = openai.OpenAI(api_key=openai.api_key)
 
-# Streamlit app layout
-def main():
-    st.title("Investor Analysis App")
-
-    # Industry input
-    industry = st.text_input("Enter an industry:", value="semiconductors")
-    
-    # Retrieve the stock tickers of the top five companies
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{
-            "role": "system",
-            "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."
-        },{
-            "role": "user",
-            "content": f"What are the top five promising companies in the {industry} industry?"
-        }]
+def get_promising_tickers(industry):
+    response = client.chat.completions(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a financial investor, respond with facts and focused messages as talking to a non expert."},
+            {"role": "user", "content": f"What are the top five promising companies in the {industry} industry for investment based on last year results and future outlook?"}
+        ]
     )
-    tickers = parse_tickers(response['choices'][0]['message']['content'])
+    chat_response = response['choices'][0]['message']['content']
+    # Extract tickers from the response, assuming the response is well structured.
+    tickers = BeautifulSoup(chat_response, 'html.parser').get_text()
+    return tickers.split()[:5]  # Assumes that the tickers are separated by spaces and returns the first five
 
-    # Retrieve historical data
-    data = {ticker: yf.Ticker(ticker).history(period="2y", interval="1wk") for ticker in tickers}
-    
-    # Plotting historical data
-    fig = go.Figure()
-    for ticker, df in data.items():
-        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name=ticker))
-    fig.update_layout(title='Historical Close Prices', xaxis_title='Date', yaxis_title='Close Price')
-    st.plotly_chart(fig, use_container_width=True)
-
-    # Display financials and info
-    top_stock, justification = analyze_and_recommend(tickers)
-    st.write(f"Top recommended stock: {top_stock}\nJustification: {justification}")
-    
-    # Display detailed financials for the top stock
-    financials = yf.Ticker(top_stock).financials
-    st.write(financials)
-    
-    # Retrieve daily stock data for candlestick chart
-    daily_data = yf.Ticker(top_stock).history(period="1y")
-    fig = go.Figure(data=[go.Candlestick(
-        x=daily_data.index,
-        open=daily_data['Open'],
-        high=daily_data['High'],
-        low=daily_data['Low'],
-        close=daily_data['Close']
-    )])
-    fig.update_layout(title=f"Candlestick chart for {top_stock}")
-    st.plotly_chart(fig, use_container_width=True)
-
-def parse_tickers(response_text):
-    # Parse response to extract tickers (placeholder)
-    return response_text.split()  # Adjust this based on the actual output format
-
-def analyze_and_recommend(tickers):
-    # Analyze tickers and recommend the best one (placeholder)
+def fetch_stock_data(tickers):
+    data = {}
     for ticker in tickers:
-        detailed_data = yf.Ticker(ticker).info
-        # Call the language model to analyze data
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[{
-                "role": "user",
-                "content": f"Analyze {ticker} based on financials and market sentiment."
-            }]
-        )
-        # Assume response provides a recommendation
-        # Placeholder implementation
-        return ticker, "Placeholder justification for the choice"
+        data[ticker] = yf.Ticker(ticker).history(period="2y", interval="1wk")
+    return data
 
-if __name__ == "__main__":
-    main()
+def plot_data(data, ticker):
+    fig = go.Figure()
+    for t, df in data.items():
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name=t))
+    fig.update_layout(title=f'Weekly Close Prices for {ticker}',
+                      xaxis_title='Date',
+                      yaxis_title='Close Price',
+                      legend_title='Ticker')
+    st.plotly_chart(fig, use_container_width=True)
+
+def get_detailed_recommendation(tickers):
+    best_ticker = ''
+    best_justification = ''
+    best_score = -float('inf')
+    for ticker in tickers:
+        ticker_data = yf.Ticker(ticker)
+        financials = ticker_data.financials.to_dict()
+        info = ticker_data.info
+        news = ticker_data.news  # Simulating news extraction
+        recommendation = client.chat.completions(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a financial investor, respond with quantitative and qualitative analysis."},
+                {"role": "user", "content": f"Give a recommendation for {ticker} based on the following data: {financials}, {info}, {news}"}
+            ]
+        )
+        response = recommendation['choices'][0]['message']['content']
+        score = float(response.split()[0])  # Example: extract a numeric score from the response
+        if score > best_score:
+            best_score = score
+            best_ticker = ticker
+            best_justification = response
+    return best_ticker, best_justification
+
+# Streamlit App Interface
+st.title("Investor Analysis Tool")
+
+industry = st.text_input("Enter the industry or sub-industry", "semiconductors")
+tickers = get_promising_tickers(industry)
+st.write("Promising Tickers: ", tickers)
+
+data = fetch_stock_data(tickers)
+selected_ticker = st.selectbox("Select Ticker", tickers)
+plot_data(data, selected_ticker)
+
+top_stock, justification = get_detailed_recommendation(tickers)
+st.write("Top Investment Recommendation: ", top_stock)
+st.write("Justification: ", justification)
+
+# Fetch and plot detailed stock data for the top stock
+top_stock_data = yf.Ticker(top_stock).history(period="1y")
+fig = go.Figure(data=[go.Candlestick(x=top_stock_data.index,
+                                     open=top_stock_data['Open'],
+                                     high=top_stock_data['High'],
+                                     low=top_stock_data['Low'],
+                                     close=top_stock_data['Close'])])
+fig.update_layout(title=f'Daily Candlestick Chart for {top_stock}',
+                  xaxis_title='Date',
+                  yaxis_title='Price')
+st.plotly_chart(fig, use_container_width=True)
