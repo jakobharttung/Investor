@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 from plotly import graph_objects as go
-from anthropic import Anthropic
+from anthropic import Anthropic, Client
 import datetime
 
 # Initialize Anthropics API Client
