@@ -12,21 +12,33 @@ import numpy as np
 # Initialize Anthropic client
 anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-def serialize_data(obj):
-    """Helper function to serialize data for JSON"""
-    if isinstance(obj, pd.Timestamp):
-        return obj.strftime('%Y-%m-%d')
-    if isinstance(obj, pd.Series):
-        return obj.to_dict()
-    if isinstance(obj, pd.DataFrame):
-        return obj.to_dict()
-    if isinstance(obj, (np.int64, np.int32)):
-        return int(obj)
-    if isinstance(obj, (np.float64, np.float32)):
-        return float(obj)
-    if isinstance(obj, datetime):
-        return obj.strftime('%Y-%m-%d')
-    return str(obj)
+def serialize_pandas_data(data):
+    """Helper function to serialize pandas data structures"""
+    if isinstance(data, pd.DataFrame):
+        return {
+            str(k): serialize_pandas_data(v) 
+            for k, v in data.to_dict().items()
+        }
+    elif isinstance(data, pd.Series):
+        return {
+            str(k): serialize_pandas_data(v) 
+            for k, v in data.to_dict().items()
+        }
+    elif isinstance(data, dict):
+        return {
+            str(k): serialize_pandas_data(v) 
+            for k, v in data.items()
+        }
+    elif isinstance(data, (pd.Timestamp, datetime)):
+        return data.strftime('%Y-%m-%d')
+    elif isinstance(data, (np.int64, np.int32)):
+        return int(data)
+    elif isinstance(data, (np.float64, np.float32)):
+        return float(data)
+    elif isinstance(data, list):
+        return [serialize_pandas_data(item) for item in data]
+    else:
+        return data
 
 def get_top_tickers(industry):
     prompt = f"""As a financial investment expert, please provide the stock tickers of the five most promising companies for investment in the {industry} industry. 
@@ -59,31 +71,30 @@ def create_stock_chart(df_dict, period='2y'):
         height=600
     )
     
-    # Add range slider
     fig.update_layout(xaxis_rangeslider_visible=True)
     
     return fig
 
 def get_stock_recommendation(tickers_data):
-    # Prepare data for prompt by serializing it properly
-    serialized_data = {}
+    # Prepare a simplified version of the data for the prompt
+    simplified_data = {}
     for ticker, data in tickers_data.items():
-        serialized_data[ticker] = {
-            'financials': {
-                k: serialize_data(v) for k, v in data['financials'].items()
+        simplified_data[ticker] = {
+            'financials': serialize_pandas_data(data['financials']),
+            'key_stats': {
+                'marketCap': data['info'].get('marketCap', 'N/A'),
+                'peRatio': data['info'].get('peRatio', 'N/A'),
+                'forwardPE': data['info'].get('forwardPE', 'N/A'),
+                'dividendYield': data['info'].get('dividendYield', 'N/A'),
             },
-            'info': {
-                k: serialize_data(v) for k, v in data['info'].items()
-                if k not in ['longBusinessSummary']  # Exclude long text fields
-            },
-            'news': [
-                {k: serialize_data(v) for k, v in news_item.items()}
-                for news_item in data['news'][:3]  # Limit to 3 news items
+            'recent_news': [
+                {'title': news.get('title', ''), 'date': news.get('providerPublishTime', '')}
+                for news in data['news'][:2]  # Only include 2 most recent news items
             ]
         }
 
     analysis_prompt = f"""As a financial investment expert, analyze the following companies and recommend the most interesting investment opportunity:
-    {json.dumps(serialized_data, indent=2)}
+    {json.dumps(simplified_data, indent=2)}
     
     Please provide:
     1. The selected ticker
@@ -91,7 +102,7 @@ def get_stock_recommendation(tickers_data):
     3. Key financial metrics supporting the decision"""
     
     message = anthropic.messages.create(
-        model="claude-3-5-sonnet-20241022",
+        model="claude-3-sonnet-20240122",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": analysis_prompt}]
@@ -117,20 +128,18 @@ def create_candlestick_chart(ticker):
     return fig, data
 
 def get_technical_analysis(data, ticker):
-    # Prepare data for prompt by serializing it
-    serialized_data = {
-        'summary': {
-            k: serialize_data(v) for k, v in data.describe().to_dict().items()
-        },
-        'recent_data': data.tail(30).to_dict()  # Include last 30 days of data
+    # Prepare simplified data for the prompt
+    simplified_data = {
+        'summary_stats': serialize_pandas_data(data.describe()),
+        'recent_prices': serialize_pandas_data(data.tail(5))
     }
 
     analysis_prompt = f"""As a technical analyst, please identify five key technical patterns in the following stock data for {ticker}.
     Provide the pattern name, date of occurrence, and brief explanation.
-    Data summary: {json.dumps(serialized_data, indent=2)}"""
+    Data summary: {json.dumps(simplified_data, indent=2)}"""
     
     message = anthropic.messages.create(
-        model="claude-3-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": analysis_prompt}]
@@ -141,7 +150,6 @@ def get_technical_analysis(data, ticker):
 def main():
     st.title("Investment Analysis App")
     
-    # Industry input
     industry = st.text_input("Enter industry or sub-industry", value="semiconductors")
     
     if st.button("Analyze"):
@@ -149,6 +157,7 @@ def main():
             try:
                 # Get top tickers
                 tickers = get_top_tickers(industry)
+                st.write(f"Analyzing tickers: {', '.join(tickers)}")
                 
                 # Fetch historical data
                 df_dict = {}
@@ -156,9 +165,9 @@ def main():
                 
                 for ticker in tickers:
                     stock = yf.Ticker(ticker)
-                    df_dict[ticker] = stock.history(period='2y', interval='1wk')
+                    df_dict[ticker] = stock.history(period='2y', interval='1w')
                     tickers_data[ticker] = {
-                        'financials': stock.financials.to_dict(),
+                        'financials': stock.financials,
                         'info': stock.info,
                         'news': stock.news
                     }
@@ -172,19 +181,11 @@ def main():
                 st.write(recommendation)
                 
                 # Get recommended ticker (assuming it's the first word in the recommendation)
-                recommended_ticker = recommendation.split()[0]
+                recommended_ticker = recommendation.split()[0].strip()
                 
                 # Create and display candlestick chart
                 candlestick_fig, candlestick_data = create_candlestick_chart(recommended_ticker)
                 st.plotly_chart(candlestick_fig)
                 
                 # Get and display technical analysis
-                technical_analysis = get_technical_analysis(candlestick_data, recommended_ticker)
-                st.write("### Technical Analysis")
-                st.write(technical_analysis)
-                
-            except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
-
-if __name__ == "__main__":
-    main()
+                technical_analysis = get_
