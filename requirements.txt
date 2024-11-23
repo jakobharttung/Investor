@@ -5,6 +5,7 @@ openpyxl
 yfinance
 plotly
 anthropic
+openai
 beautifulsoup4
 pygwalker
 setuptools
