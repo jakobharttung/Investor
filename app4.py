@@ -156,7 +156,7 @@ def main():
                 
                 for ticker in tickers:
                     stock = yf.Ticker(ticker)
-                    df_dict[ticker] = stock.history(period='2y', interval='1w')
+                    df_dict[ticker] = stock.history(period='2y', interval='1wk')
                     tickers_data[ticker] = {
                         'financials': stock.financials.to_dict(),
                         'info': stock.info,
