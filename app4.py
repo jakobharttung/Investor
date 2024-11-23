@@ -6,7 +6,7 @@ import datetime
 
 # Initialize Anthropics API Client
 api_key = st.secrets["ANTHROPIC_API_KEY"]
-client = Anthropic(api_key)
+client = Client(api_key=api_key)
 
 MODEL = "claude-3-5-sonnet-20241022"
 SYSTEM_PROMPT = """You are a financial investor. Respond with facts and focused messages as talking to a non-expert."""
