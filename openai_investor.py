@@ -11,6 +11,7 @@ openai.api_key = st.secrets["OPENAI_API_KEY"]
 # Helper function to call OpenAI API
 def call_openai(prompt, system_message="You are a financial investor. Respond with facts and focused messages as talking to a non-expert."):
     try:
+        # Use OpenAI's ChatCompletion API
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -18,7 +19,7 @@ def call_openai(prompt, system_message="You are a financial investor. Respond wi
                 {"role": "user", "content": prompt},
             ]
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message["content"]
     except Exception as e:
         st.error(f"OpenAI API error: {e}")
         return ""
