@@ -10,6 +10,10 @@ import ta
 # Set Streamlit page configuration
 st.set_page_config(page_title="Investor Analysis App", layout="wide")
 
+# Display OpenAI library version (for debugging purposes)
+# Remove or comment out after verification
+st.write(f"OpenAI library version: {openai.__version__}")
+
 # Initialize OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
@@ -22,8 +26,8 @@ def get_openai_response(messages):
             temperature=0.5,
             max_tokens=1500,
         )
-        # Access the response content correctly using dictionary-style access
-        return response['choices'][0]['message']['content'].strip()
+        # Access the response content correctly using attribute access
+        return response.choices[0].message.content.strip()
     except Exception as e:
         st.error(f"OpenAI API error: {e}")
         return None
