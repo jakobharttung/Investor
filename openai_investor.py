@@ -1,135 +1,88 @@
 import streamlit as st
 import yfinance as yf
-from bs4 import BeautifulSoup
-import plotly.graph_objects as go
+import plotly.graph_objs as go
 import openai
-import pandas as pd
-import datetime as dt
+from bs4 import BeautifulSoup
 
-# OpenAI GPT client setup
-openai.api_key = "your_openai_api_key"
+# Initialize the OpenAI client
+openai.api_key = 'your-api-key'
+client = openai.OpenAI(api_key=openai.api_key)
 
-# Helper function for OpenAI GPT-4o calls
-def call_language_model(prompt, system_message):
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt},
-        ],
+# Streamlit app layout
+def main():
+    st.title("Investor Analysis App")
+
+    # Industry input
+    industry = st.text_input("Enter an industry:", value="semiconductors")
+    
+    # Retrieve the stock tickers of the top five companies
+    response = client.chat.completions(
+        model="gpt-4.0-turbo",
+        messages=[{
+            "role": "system",
+            "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."
+        },{
+            "role": "user",
+            "content": f"What are the top five promising companies in the {industry} industry?"
+        }]
     )
-    return response.choices[0].message["content"]
+    tickers = parse_tickers(response.choices[0].message['content'])
 
-# Streamlit App
-st.title("Investor Analysis App")
+    # Retrieve historical data
+    data = {ticker: yf.Ticker(ticker).history(period="2y", interval="1wk") for ticker in tickers}
+    
+    # Plotting historical data
+    fig = go.Figure()
+    for ticker, df in data.items():
+        fig.add_trace(go.Scatter(x=df.index, y=df['Close'], mode='lines', name=ticker))
+    fig.update_layout(title='Historical Close Prices', xaxis_title='Date', yaxis_title='Close Price')
+    st.plotly_chart(fig, use_container_width=True)
 
-# Input for industry or sub-industry
-industry = st.text_input("Enter an industry or sub-industry:", "semiconductors")
+    # Display financials and info
+    top_stock, justification = analyze_and_recommend(tickers)
+    st.write(f"Top recommended stock: {top_stock}\nJustification: {justification}")
+    
+    # Display detailed financials for the top stock
+    financials = yf.Ticker(top_stock).financials
+    st.write(financials)
+    
+    # Retrieve daily stock data for candlestick chart
+    daily_data = yf.Ticker(top_stock).history(period="1y")
+    fig = go.Figure(data=[go.Candlestick(
+        x=daily_data.index,
+        open=daily_data['Open'],
+        high=daily_data['High'],
+        low=daily_data['Low'],
+        close=daily_data['Close']
+    )])
+    fig.update_layout(title=f"Candlestick chart for {top_stock}")
+    st.plotly_chart(fig, use_container_width=True)
 
-# Default system persona for the language model
-system_message = (
-    "You are a financial investor. Respond with facts and focused messages as talking to a non-expert."
-)
+    # Perform technical analysis (Placeholder for actual implementation)
+    # analysis = perform_technical_analysis(daily_data)
+    # for pattern in analysis:
+    #     fig.add_annotation(x=pattern['date'], y=pattern['price'], text=pattern['name'], showarrow=True)
 
-# Call language model to retrieve stock tickers
-if st.button("Retrieve Top Companies"):
-    prompt = (
-        f"Provide the stock tickers of the top five companies in the {industry} industry, "
-        "based on their results over the last year and future outlook."
-    )
-    tickers_response = call_language_model(prompt, system_message)
-    st.write("Language model response:", tickers_response)
+def parse_tickers(response_text):
+    # Parse response to extract tickers (placeholder)
+    soup = BeautifulSoup(response_text, 'html.parser')
+    return [a.text for a in soup.find_all('a')]
 
-    # Extract tickers (assuming comma-separated list in response)
-    tickers = [ticker.strip() for ticker in tickers_response.split(",") if ticker]
-
-    # Fetch data using yfinance
-    if tickers:
-        st.subheader(f"Stock Data for {industry} Industry")
-        st.write("Tickers retrieved:", ", ".join(tickers))
-
-        # Retrieve 2 years of weekly data
-        end_date = dt.datetime.now()
-        start_date = end_date - dt.timedelta(weeks=104)
-        data = yf.download(tickers, start=start_date, end=end_date, interval="1wk")
-
-        # Plot the data
-        fig = go.Figure()
-        for ticker in tickers:
-            fig.add_trace(
-                go.Scatter(x=data.index, y=data["Close", ticker], mode="lines", name=ticker)
-            )
-        fig.update_layout(
-            title="Weekly Historical Close Prices",
-            xaxis_title="Date",
-            yaxis_title="Price (USD)",
+def analyze_and_recommend(tickers):
+    # Analyze tickers and recommend the best one (placeholder)
+    for ticker in tickers:
+        detailed_data = yf.Ticker(ticker).info
+        # Call the language model to analyze data
+        response = client.chat.completions(
+            model="gpt-4.0-turbo",
+            messages=[{
+                "role": "user",
+                "content": f"Analyze {ticker} based on financials and market sentiment."
+            }]
         )
-        st.plotly_chart(fig)
+        # Assume response provides a recommendation
+        # Placeholder implementation
+        return ticker, "Placeholder justification for the choice"
 
-        # Retrieve detailed data and recommendations
-        recommendations = []
-        for ticker in tickers:
-            stock = yf.Ticker(ticker)
-            financials = stock.financials
-            info = stock.info
-            news = stock.news
-
-            # Build prompt for language model
-            prompt = (
-                f"Given the following data for {ticker}, provide a recommendation on its investment potential:\n"
-                f"Financials: {financials.to_dict()}\n"
-                f"Info: {info}\n"
-                f"Recent News: {news}\n"
-                "Please determine which stock has the best investment potential and justify the recommendation."
-            )
-            recommendation = call_language_model(prompt, system_message)
-            recommendations.append((ticker, recommendation))
-
-        # Display the top recommendation
-        top_stock, justification = max(recommendations, key=lambda x: x[1])
-        st.subheader("Top Stock Recommendation")
-        st.write(f"Top stock: {top_stock}")
-        st.write(f"Justification: {justification}")
-
-        # Fetch summary financials for top stock
-        top_stock_data = yf.Ticker(top_stock)
-        info = top_stock_data.info
-
-        st.write("Summary Financials:")
-        st.write(
-            {
-                "Yearly Revenue": info.get("totalRevenue"),
-                "EBITDA": info.get("ebitda"),
-                "P/E Ratio": info.get("trailingPE"),
-                "Market Cap": info.get("marketCap"),
-                "Yearly Growth (Revenue)": info.get("revenueGrowth"),
-                "EPS Growth": info.get("earningsGrowth"),
-            }
-        )
-
-        # Retrieve daily data and plot candlestick chart
-        st.subheader("Daily Candlestick Chart with Technical Analysis")
-        daily_data = top_stock_data.history(period="1y", interval="1d")
-        fig = go.Figure(
-            data=[
-                go.Candlestick(
-                    x=daily_data.index,
-                    open=daily_data["Open"],
-                    high=daily_data["High"],
-                    low=daily_data["Low"],
-                    close=daily_data["Close"],
-                )
-            ]
-        )
-        fig.update_layout(title=f"Daily Candlestick Chart for {top_stock}", xaxis_title="Date", yaxis_title="Price")
-        st.plotly_chart(fig)
-
-        # Add technical analysis notes
-        st.write("Identified Patterns:")
-        # Example patterns (replace with actual analysis logic)
-        patterns = [
-            {"date": "2023-02-15", "pattern": "Bullish Engulfing"},
-            {"date": "2023-04-10", "pattern": "Double Bottom"},
-        ]
-        for pattern in patterns:
-            st.write(f"Date: {pattern['date']}, Pattern: {pattern['pattern']}")
+if __name__ == "__main__":
+    main()
