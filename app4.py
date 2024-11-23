@@ -1,53 +1,64 @@
 import streamlit as st
 import yfinance as yf
-import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import pandas as pd
 from datetime import datetime, timedelta
-import anthropic
-from bs4 import BeautifulSoup
+from anthropic import Anthropic
 import json
+from bs4 import BeautifulSoup
+import numpy as np
 
 # Initialize Anthropic client
-client = anthropic.Client(api_key=st.secrets["ANTHROPIC_API_KEY"])
+anthropic = Anthropic(api_key=st.secrets["ANTHROPIC_API_KEY"])
 
-def get_tickers_from_industry(industry):
+def get_top_tickers(industry):
     prompt = f"""As a financial investment expert, please provide the stock tickers of the five most promising companies for investment in the {industry} industry. 
     Consider market position, growth potential, and financial stability. 
     Return only the tickers in a comma-separated format."""
     
-    message = client.messages.create(
-        model="claude-3-sonnet-20240229",
+    message = anthropic.messages.create(
+        model="claude-3-sonnet-20240122",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": prompt}]
     )
     
     tickers = message.content[0].text.strip().split(',')
-    return [t.strip() for t in tickers]
+    return [ticker.strip() for ticker in tickers]
 
-def create_stock_chart(tickers, period='2y', interval='1wk'):
+def create_stock_chart(df_dict, period='2y'):
     fig = go.Figure()
-    for ticker in tickers:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period=period, interval=interval)
-        fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'],
-                                mode='lines', name=ticker))
+    
+    for ticker, df in df_dict.items():
+        fig.add_trace(
+            go.Scatter(x=df.index, y=df['Close'],
+                      name=ticker, mode='lines')
+        )
     
     fig.update_layout(
-        title='Stock Price History',
-        xaxis_title='Date',
+        title='Stock Price Comparison',
         yaxis_title='Price',
-        hovermode='x unified'
+        xaxis_title='Date',
+        height=600
     )
+    
+    # Add range slider
+    fig.update_layout(xaxis_rangeslider_visible=True)
+    
     return fig
 
-def analyze_stocks(tickers):
-    analysis_prompt = f"""As a financial analyst, please analyze these companies {', '.join(tickers)} and recommend the most promising investment.
-    Consider recent financial performance, market position, and growth prospects.
-    Provide a clear recommendation with brief justification."""
+def get_stock_recommendation(tickers_data):
+    analysis_prompt = f"""As a financial investment expert, analyze the following companies and recommend the most interesting investment opportunity:
+    {json.dumps(tickers_data, indent=2)}
     
-    message = client.messages.create(
-        model="claude-3-sonnet-20240229",
+    Please provide:
+    1. The selected ticker
+    2. A brief explanation of why this is the best choice
+    3. Key financial metrics supporting the decision"""
+    
+    message = anthropic.messages.create(
+        model="claude-3-sonnet-20240122",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": analysis_prompt}]
@@ -55,66 +66,79 @@ def analyze_stocks(tickers):
     
     return message.content[0].text
 
-def technical_analysis(ticker_data):
-    prompt = f"""As a technical analyst, please identify five key technical patterns in this stock's price movement over the past year.
-    Consider support/resistance levels, trend lines, and classic patterns.
-    Format each pattern as: Pattern Name: Brief explanation"""
+def create_candlestick_chart(ticker):
+    data = yf.download(ticker, period='1y', interval='1d')
     
-    message = client.messages.create(
-        model="claude-3-sonnet-20240229",
+    fig = go.Figure(data=[go.Candlestick(x=data.index,
+                open=data['Open'],
+                high=data['High'],
+                low=data['Low'],
+                close=data['Close'])])
+    
+    fig.update_layout(
+        title=f'{ticker} Price Chart',
+        yaxis_title='Price',
+        xaxis_title='Date'
+    )
+    
+    return fig, data
+
+def get_technical_analysis(data, ticker):
+    analysis_prompt = f"""As a technical analyst, please identify five key technical patterns in the following stock data for {ticker}.
+    Provide the pattern name, date of occurrence, and brief explanation.
+    Data summary: {data.describe().to_dict()}"""
+    
+    message = anthropic.messages.create(
+        model="claude-3-sonnet-20240122",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": analysis_prompt}]
     )
     
     return message.content[0].text
 
 def main():
-    st.title('Industry Stock Analysis')
+    st.title("Investment Analysis App")
     
-    industry = st.text_input('Enter Industry', value='semiconductors')
+    # Industry input
+    industry = st.text_input("Enter industry or sub-industry", value="semiconductors")
     
-    if industry:
-        tickers = get_tickers_from_industry(industry)
+    if st.button("Analyze"):
+        # Get top tickers
+        tickers = get_top_tickers(industry)
         
-        # Historical price chart
-        periods = ['1m', '3m', '6m', '1y', '2y', '5y']
-        selected_period = st.select_slider('Select Period', options=periods, value='2y')
+        # Fetch historical data
+        df_dict = {}
+        tickers_data = {}
         
-        chart = create_stock_chart(tickers, period=selected_period)
-        st.plotly_chart(chart)
+        for ticker in tickers:
+            stock = yf.Ticker(ticker)
+            df_dict[ticker] = stock.history(period='2y', interval='1w')
+            tickers_data[ticker] = {
+                'financials': stock.financials.to_dict(),
+                'info': stock.info,
+                'news': stock.news
+            }
         
-        # Stock analysis
-        analysis = analyze_stocks(tickers)
-        st.subheader('Investment Recommendation')
-        st.write(analysis)
+        # Display comparison chart
+        st.plotly_chart(create_stock_chart(df_dict))
         
-        # Get recommended ticker (assuming it's the first mentioned in the analysis)
-        recommended_ticker = tickers[0]  # This should be extracted from analysis
+        # Get and display recommendation
+        recommendation = get_stock_recommendation(tickers_data)
+        st.write("### Investment Recommendation")
+        st.write(recommendation)
         
-        # Display financials
-        stock = yf.Ticker(recommended_ticker)
-        st.subheader(f'{recommended_ticker} Financial Summary')
-        financials = stock.financials
-        st.dataframe(financials.head())
+        # Get recommended ticker (assuming it's the first word in the recommendation)
+        recommended_ticker = recommendation.split()[0]
         
-        # Candlestick chart
-        hist = stock.history(period='1y', interval='1d')
-        fig = go.Figure(data=[go.Candlestick(x=hist.index,
-                                            open=hist['Open'],
-                                            high=hist['High'],
-                                            low=hist['Low'],
-                                            close=hist['Close'])])
+        # Create and display candlestick chart
+        candlestick_fig, candlestick_data = create_candlestick_chart(recommended_ticker)
+        st.plotly_chart(candlestick_fig)
         
-        # Technical analysis
-        patterns = technical_analysis(hist)
-        st.subheader('Technical Analysis')
-        st.write(patterns)
-        
-        fig.update_layout(title=f'{recommended_ticker} Price Chart',
-                         xaxis_title='Date',
-                         yaxis_title='Price')
-        st.plotly_chart(fig)
+        # Get and display technical analysis
+        technical_analysis = get_technical_analysis(candlestick_data, recommended_ticker)
+        st.write("### Technical Analysis")
+        st.write(technical_analysis)
 
 if __name__ == "__main__":
     main()
