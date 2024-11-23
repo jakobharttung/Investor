@@ -34,7 +34,7 @@ def get_top_tickers(industry):
     Return only the tickers in a comma-separated format."""
     
     message = anthropic.messages.create(
-        model="claude-3-sonnet-20240122",
+        model="claude-3-5-sonnet-202401022",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": prompt}]
@@ -91,7 +91,7 @@ def get_stock_recommendation(tickers_data):
     3. Key financial metrics supporting the decision"""
     
     message = anthropic.messages.create(
-        model="claude-3-sonnet-20240122",
+        model="claude-3-5-sonnet-20241022",
         max_tokens=1000,
         system="You are a financial investor, respond with facts and focused messages as talking to a non expert",
         messages=[{"role": "user", "content": analysis_prompt}]
