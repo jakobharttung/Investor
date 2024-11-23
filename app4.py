@@ -9,11 +9,10 @@ import numpy as np
 
 # Initialize OpenAI API
 openai.api_key = st.secrets["OPENAI_API_KEY"]
-client = openai.ChatCompletion()
 
 # Function to call GPT-4o for stock ticker recommendations
 def get_top_tickers(industry):
-    response = client.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."},
@@ -36,7 +35,7 @@ def get_stock_recommendation(tickers_data):
     analysis_prompt = "Analyze the following financial data and analyst sentiment for the listed tickers. Which stock has the best investment potential?"
     tickers_summary = "\n".join([f"{ticker}: {data['info']['shortName']}" for ticker, data in tickers_data.items()])
     prompt = f"{analysis_prompt}\n\n{tickers_summary}"
-    response = client.chat.completions.create(
+    response = openai.ChatCompletion.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."},
