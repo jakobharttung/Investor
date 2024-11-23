@@ -16,7 +16,7 @@ def main():
     
     # Retrieve the stock tickers of the top five companies
     response = client.chat.completions.create(
-        model="gpt-4.0-turbo",
+        model="gpt-4",
         messages=[{
             "role": "system",
             "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."
@@ -67,7 +67,7 @@ def analyze_and_recommend(tickers):
         detailed_data = yf.Ticker(ticker).info
         # Call the language model to analyze data
         response = client.chat.completions.create(
-            model="gpt-4.0-turbo",
+            model="gpt-4",
             messages=[{
                 "role": "user",
                 "content": f"Analyze {ticker} based on financials and market sentiment."
