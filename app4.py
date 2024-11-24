@@ -23,48 +23,87 @@ def plot_candlestick_chart(data, time_period):
 
 def detect_technical_patterns(data):
     analysis = []
+    close_prices = data['Close']
+    high_prices = data['High']
+    low_prices = data['Low']
+    open_prices = data['Open']
 
     # Head and Shoulders
-    def head_and_shoulders(data):
-        rolling_high = data['High'].rolling(window=20).max()
-        rolling_low = data['Low'].rolling(window=20).min()
-        if rolling_high.iloc[-1] < rolling_high.iloc[-2] > rolling_high.iloc[-3]:
-            return True
-        return False
+    def head_and_shoulders():
+        # Check for peak in the middle and two smaller peaks on either side
+        if len(close_prices) >= 50:
+            middle_peak = high_prices[-30]
+            left_peak = max(high_prices[-50:-30])
+            right_peak = max(high_prices[-30:])
+            if middle_peak > left_peak and middle_peak > right_peak:
+                return True, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
+        return False, {}
 
-    # Inverse Head and Shoulders
-    def inverse_head_and_shoulders(data):
-        rolling_low = data['Low'].rolling(window=20).min()
-        if rolling_low.iloc[-1] > rolling_low.iloc[-2] < rolling_low.iloc[-3]:
-            return True
-        return False
+    # Double Top
+    def double_top():
+        if len(close_prices) >= 50:
+            recent_highs = high_prices[-50:].nlargest(2)
+            if abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
+                return True, {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
+        return False, {}
 
-    # Cup and Handle
-    def cup_and_handle(data):
-        prices = data['Close']
-        if len(prices) >= 30 and (prices.iloc[-1] > prices.iloc[-15]):
-            return True
-        return False
+    # Double Bottom
+    def double_bottom():
+        if len(close_prices) >= 50:
+            recent_lows = low_prices[-50:].nsmallest(2)
+            if abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
+                return True, {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
+        return False, {}
 
     # Shooting Star
-    def shooting_star(data):
-        body = data['Close'] - data['Open']
-        wick = data['High'] - data['Close']
-        if body.iloc[-1] < wick.iloc[-1] and wick.iloc[-1] > 2 * abs(body.iloc[-1]):
-            return True
-        return False
+    def shooting_star():
+        body = abs(close_prices.iloc[-1] - open_prices.iloc[-1])
+        wick = high_prices.iloc[-1] - close_prices.iloc[-1]
+        if wick > 2 * body and close_prices.iloc[-1] < open_prices.iloc[-1]:
+            return True, {"Body": body, "Wick": wick}
+        return False, {}
 
-    # Analysis
-    if head_and_shoulders(data):
-        analysis.append({"Pattern": "Head and Shoulders", "Strategy": "Sell (Reversal pattern detected)"})
-    if inverse_head_and_shoulders(data):
-        analysis.append({"Pattern": "Inverse Head and Shoulders", "Strategy": "Buy (Bullish reversal pattern detected)"})
-    if cup_and_handle(data):
-        analysis.append({"Pattern": "Cup and Handle", "Strategy": "Buy (Continuation pattern detected)"})
-    if shooting_star(data):
-        analysis.append({"Pattern": "Shooting Star", "Strategy": "Sell (Bearish reversal pattern detected)"})
+    # Detect patterns
+    hs, hs_params = head_and_shoulders()
+    if hs:
+        analysis.append({
+            "Pattern": "Head and Shoulders",
+            "Description": "A reversal pattern signaling the end of an uptrend.",
+            "Time Period": "Last 50 days",
+            "Key Parameters": hs_params,
+            "Suggested Action": "Sell (Bearish Reversal)"
+        })
 
-    # Add more patterns as needed
+    dt, dt_params = double_top()
+    if dt:
+        analysis.append({
+            "Pattern": "Double Top",
+            "Description": "A bearish reversal pattern formed after two peaks.",
+            "Time Period": "Last 50 days",
+            "Key Parameters": dt_params,
+            "Suggested Action": "Sell (Bearish Reversal)"
+        })
+
+    db, db_params = double_bottom()
+    if db:
+        analysis.append({
+            "Pattern": "Double Bottom",
+            "Description": "A bullish reversal pattern formed after two troughs.",
+            "Time Period": "Last 50 days",
+            "Key Parameters": db_params,
+            "Suggested Action": "Buy (Bullish Reversal)"
+        })
+
+    ss, ss_params = shooting_star()
+    if ss:
+        analysis.append({
+            "Pattern": "Shooting Star",
+            "Description": "A bearish reversal candlestick pattern.",
+            "Time Period": "Last Day",
+            "Key Parameters": ss_params,
+            "Suggested Action": "Sell (Bearish Reversal)"
+        })
+
     return analysis
 
 def fetch_financials(ticker):
@@ -105,7 +144,10 @@ if ticker:
         if patterns:
             for pattern in patterns:
                 st.write(f"**Pattern:** {pattern['Pattern']}")
-                st.write(f"**Suggested Strategy:** {pattern['Strategy']}")
+                st.write(f"**Description:** {pattern['Description']}")
+                st.write(f"**Time Period:** {pattern['Time Period']}")
+                st.write(f"**Key Parameters:** {pattern['Key Parameters']}")
+                st.write(f"**Suggested Action:** {pattern['Suggested Action']}")
                 st.write("---")
         else:
             st.write("No technical patterns detected for the selected time period.")
