@@ -1,107 +1,101 @@
 import streamlit as st
 import yfinance as yf
-import openai
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from datetime import datetime, timedelta
-import numpy as np
+import ta
 
-# Initialize OpenAI API
-openai.api_key = st.secrets["OPENAI_API_KEY"]
-
-# Function to call GPT-4o for stock ticker recommendations
-def get_top_tickers(industry):
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."},
-            {"role": "user", "content": f"List the stock tickers of the top five companies in the {industry} industry based on last year's results and future outlook."}
-        ]
-    )
-    tickers = response['choices'][0]['message']['content'].split()
-    return tickers[:5]
-
-# Function to get stock financial data and news
-def get_stock_details(ticker):
+def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
-    financials = stock.financials
-    info = stock.info
-    news = stock.news
-    return financials, info, news
+    data = stock.history(period="max")
+    return data
 
-# Function to get stock recommendation
-def get_stock_recommendation(tickers_data):
-    analysis_prompt = "Analyze the following financial data and analyst sentiment for the listed tickers. Which stock has the best investment potential?"
-    tickers_summary = "\n".join([f"{ticker}: {data['info']['shortName']}" for ticker, data in tickers_data.items()])
-    prompt = f"{analysis_prompt}\n\n{tickers_summary}"
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are a financial investor, respond with facts and focused messages as talking to a non-expert."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response['choices'][0]['message']['content']
-
-# Streamlit App Layout
-st.title("Investor Analysis App")
-industry = st.text_input("Enter an industry or sub-industry:", value="semiconductors")
-
-# Retrieve Top Stock Tickers
-if st.button("Analyze"):
-    with st.spinner("Retrieving top tickers..."):
-        top_tickers = get_top_tickers(industry)
-
-    # Fetch data for each ticker
-    tickers_data = {}
-    for ticker in top_tickers:
-        stock_data = yf.download(ticker, period="2y", interval="1wk")
-        tickers_data[ticker] = {"data": stock_data, "info": yf.Ticker(ticker).info}
-
-    # Plotly line chart for historical data
-    fig = go.Figure()
-    for ticker, data in tickers_data.items():
-        fig.add_trace(go.Scatter(x=data['data'].index, y=data['data']['Close'], name=ticker))
-    fig.update_layout(
-        title="Stock Prices (Last 2 Years)",
-        xaxis=dict(title="Date"),
-        yaxis=dict(title="Close Price"),
-    )
-    st.plotly_chart(fig)
-
-    # Get recommendation from GPT-4o
-    with st.spinner("Analyzing stocks for best investment..."):
-        recommendation = get_stock_recommendation(tickers_data)
-    st.subheader("Recommended Stock for Investment")
-    st.write(recommendation)
-
-    # Retrieve detailed financial data for the recommended stock
-    best_ticker = recommendation.split(":")[0]
-    best_stock = yf.Ticker(best_ticker)
-    st.write("**Summary Financials:**")
-    st.write({
-        "Revenue": best_stock.info.get("totalRevenue"),
-        "EBITDA": best_stock.info.get("ebitda"),
-        "P/E": best_stock.info.get("trailingPE"),
-        "Market Cap": best_stock.info.get("marketCap"),
-        "Revenue Growth": best_stock.info.get("revenueGrowth"),
-        "EPS Growth": best_stock.info.get("forwardEpsGrowth")
-    })
-
-    # Retrieve daily data and visualize candlestick chart
-    daily_data = yf.download(best_ticker, period="1y", interval="1d")
-    candlestick_fig = go.Figure(data=[go.Candlestick(
-        x=daily_data.index,
-        open=daily_data['Open'],
-        high=daily_data['High'],
-        low=daily_data['Low'],
-        close=daily_data['Close']
+def plot_candlestick_chart(data, time_period):
+    filtered_data = data.iloc[-time_period:]
+    fig = go.Figure(data=[go.Candlestick(
+        x=filtered_data.index,
+        open=filtered_data['Open'],
+        high=filtered_data['High'],
+        low=filtered_data['Low'],
+        close=filtered_data['Close']
     )])
-    candlestick_fig.update_layout(title="Candlestick Chart (Last Year)", xaxis_rangeslider_visible=False)
-    st.plotly_chart(candlestick_fig)
+    fig.update_layout(title="Candlestick Chart", xaxis_title="Date", yaxis_title="Price")
+    return fig
 
-    # Add technical analysis patterns (mock example for demo purposes)
-    st.write("**Key Technical Patterns Identified:**")
-    for idx, date in enumerate(daily_data.index[-5:]):  # Mock: Add last 5 points as patterns
-        st.write(f"Pattern {idx+1} on {date}: Bullish breakout")
+def analyze_technical_patterns(data):
+    analysis = []
+    indicators = {
+        "RSI": ta.momentum.RSIIndicator(data['Close']),
+        "MACD": ta.trend.MACD(data['Close']),
+        "Bollinger Bands": ta.volatility.BollingerBands(data['Close'])
+    }
+
+    # RSI
+    rsi = indicators["RSI"].rsi()
+    if rsi.iloc[-1] > 70:
+        analysis.append({"Pattern": "RSI", "Period": "Last 14 days", "Key Parameter": rsi.iloc[-1], "Strategy": "Sell (Overbought)"})
+    elif rsi.iloc[-1] < 30:
+        analysis.append({"Pattern": "RSI", "Period": "Last 14 days", "Key Parameter": rsi.iloc[-1], "Strategy": "Buy (Oversold)"})
+
+    # MACD
+    macd = indicators["MACD"].macd_diff()
+    if macd.iloc[-1] > 0:
+        analysis.append({"Pattern": "MACD", "Period": "Last 26 days", "Key Parameter": macd.iloc[-1], "Strategy": "Buy (Uptrend)"})
+    else:
+        analysis.append({"Pattern": "MACD", "Period": "Last 26 days", "Key Parameter": macd.iloc[-1], "Strategy": "Sell (Downtrend)"})
+
+    # Bollinger Bands
+    bb = indicators["Bollinger Bands"]
+    if data['Close'].iloc[-1] > bb.bollinger_hband().iloc[-1]:
+        analysis.append({"Pattern": "Bollinger Bands", "Period": "Last 20 days", "Key Parameter": data['Close'].iloc[-1], "Strategy": "Sell (Overbought)"})
+    elif data['Close'].iloc[-1] < bb.bollinger_lband().iloc[-1]:
+        analysis.append({"Pattern": "Bollinger Bands", "Period": "Last 20 days", "Key Parameter": data['Close'].iloc[-1], "Strategy": "Buy (Oversold)"})
+    
+    return analysis
+
+def fetch_financials(ticker):
+    stock = yf.Ticker(ticker)
+    financials = {
+        "Revenue (Last 3 Years)": stock.financials.loc["Total Revenue"].tail(3),
+        "Net Income (Last 3 Years)": stock.financials.loc["Net Income"].tail(3),
+        "P/E": stock.info.get("trailingPE", "N/A"),
+        "Forward P/E": stock.info.get("forwardPE", "N/A"),
+        "EPS": stock.info.get("trailingEps", "N/A"),
+        "EPS Growth": stock.info.get("earningsGrowth", "N/A"),
+        "ROIC": stock.info.get("returnOnEquity", "N/A")
+    }
+    return financials
+
+# Streamlit App
+st.title("Stock Investor App")
+
+ticker = st.text_input("Enter a Stock Ticker (e.g., AAPL, MSFT, TSLA):", value="AAPL")
+
+if ticker:
+    try:
+        # Fetch and Display Stock Data
+        data = fetch_stock_data(ticker)
+        time_period = st.slider("Select Time Period (Days):", min_value=10, max_value=len(data), value=60)
+        fig = plot_candlestick_chart(data, time_period)
+        st.plotly_chart(fig)
+
+        # Analyze Technical Patterns
+        st.subheader("Technical Analysis Patterns")
+        patterns = analyze_technical_patterns(data)
+        for pattern in patterns:
+            st.write(f"**Pattern:** {pattern['Pattern']}")
+            st.write(f"**Period:** {pattern['Period']}")
+            st.write(f"**Key Parameter:** {pattern['Key Parameter']:.2f}")
+            st.write(f"**Suggested Strategy:** {pattern['Strategy']}")
+            st.write("---")
+
+        # Fetch and Display Financials
+        st.subheader("Key Financials")
+        financials = fetch_financials(ticker)
+        for key, value in financials.items():
+            if isinstance(value, pd.Series):
+                st.write(f"**{key}:**")
+                st.write(value.to_dict())
+            else:
+                st.write(f"**{key}:** {value}")
+    except Exception as e:
+        st.error(f"Error fetching data for ticker '{ticker}': {e}")
