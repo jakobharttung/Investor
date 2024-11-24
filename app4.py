@@ -134,7 +134,7 @@ if ticker:
     try:
         # Fetch and Display Stock Data
         data = fetch_stock_data(ticker)
-        time_period = st.slider("Select Time Period (Days):", min_value=10, max_value=len(data), value=60)
+        time_period = 365
         fig = plot_candlestick_chart(data, time_period)
         st.plotly_chart(fig)
 
