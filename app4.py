@@ -6,18 +6,30 @@ import numpy as np
 
 def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
-    data = stock.history(period="1y")
+    data = stock.history(period="1y")  # Always fetch the last year of data
     return data
 
-def plot_candlestick_chart(data, time_period):
-    filtered_data = data.iloc[-time_period:]
+def plot_candlestick_chart(data, annotations):
     fig = go.Figure(data=[go.Candlestick(
-        x=filtered_data.index,
-        open=filtered_data['Open'],
-        high=filtered_data['High'],
-        low=filtered_data['Low'],
-        close=filtered_data['Close']
+        x=data.index,
+        open=data['Open'],
+        high=data['High'],
+        low=data['Low'],
+        close=data['Close']
     )])
+
+    # Add annotations for detected patterns
+    for annotation in annotations:
+        fig.add_annotation(
+            x=annotation['Date'],
+            y=annotation['Price'],
+            text=annotation['Pattern'],
+            showarrow=True,
+            arrowhead=2,
+            ax=0,
+            ay=-40
+        )
+
     fig.update_layout(title="Candlestick Chart", xaxis_title="Date", yaxis_title="Price")
     return fig
 
@@ -30,76 +42,80 @@ def detect_technical_patterns(data):
 
     # Head and Shoulders
     def head_and_shoulders():
-        # Check for peak in the middle and two smaller peaks on either side
         if len(close_prices) >= 50:
-            middle_peak = high_prices[-30]
-            left_peak = max(high_prices[-50:-30])
-            right_peak = max(high_prices[-30:])
+            middle_peak_index = high_prices[-50:].idxmax()
+            left_peak = max(high_prices[-50:middle_peak_index])
+            right_peak = max(high_prices[middle_peak_index:])
+            middle_peak = high_prices[middle_peak_index]
             if middle_peak > left_peak and middle_peak > right_peak:
-                return True, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
-        return False, {}
+                return middle_peak_index, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
+        return None, {}
 
     # Double Top
     def double_top():
         if len(close_prices) >= 50:
             recent_highs = high_prices[-50:].nlargest(2)
             if abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
-                return True, {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
-        return False, {}
+                return recent_highs.idxmax(), {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
+        return None, {}
 
     # Double Bottom
     def double_bottom():
         if len(close_prices) >= 50:
             recent_lows = low_prices[-50:].nsmallest(2)
             if abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
-                return True, {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
-        return False, {}
+                return recent_lows.idxmax(), {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
+        return None, {}
 
     # Shooting Star
     def shooting_star():
         body = abs(close_prices.iloc[-1] - open_prices.iloc[-1])
         wick = high_prices.iloc[-1] - close_prices.iloc[-1]
         if wick > 2 * body and close_prices.iloc[-1] < open_prices.iloc[-1]:
-            return True, {"Body": body, "Wick": wick}
-        return False, {}
+            return close_prices.index[-1], {"Body": body, "Wick": wick}
+        return None, {}
 
     # Detect patterns
-    hs, hs_params = head_and_shoulders()
-    if hs:
+    hs_date, hs_params = head_and_shoulders()
+    if hs_date:
         analysis.append({
             "Pattern": "Head and Shoulders",
             "Description": "A reversal pattern signaling the end of an uptrend.",
-            "Time Period": "Last 50 days",
+            "Date": hs_date,
+            "Price": hs_params["Middle Peak"],
             "Key Parameters": hs_params,
             "Suggested Action": "Sell (Bearish Reversal)"
         })
 
-    dt, dt_params = double_top()
-    if dt:
+    dt_date, dt_params = double_top()
+    if dt_date:
         analysis.append({
             "Pattern": "Double Top",
             "Description": "A bearish reversal pattern formed after two peaks.",
-            "Time Period": "Last 50 days",
+            "Date": dt_date,
+            "Price": dt_params["High 1"],
             "Key Parameters": dt_params,
             "Suggested Action": "Sell (Bearish Reversal)"
         })
 
-    db, db_params = double_bottom()
-    if db:
+    db_date, db_params = double_bottom()
+    if db_date:
         analysis.append({
             "Pattern": "Double Bottom",
             "Description": "A bullish reversal pattern formed after two troughs.",
-            "Time Period": "Last 50 days",
+            "Date": db_date,
+            "Price": db_params["Low 1"],
             "Key Parameters": db_params,
             "Suggested Action": "Buy (Bullish Reversal)"
         })
 
-    ss, ss_params = shooting_star()
-    if ss:
+    ss_date, ss_params = shooting_star()
+    if ss_date:
         analysis.append({
             "Pattern": "Shooting Star",
             "Description": "A bearish reversal candlestick pattern.",
-            "Time Period": "Last Day",
+            "Date": ss_date,
+            "Price": high_prices[ss_date],
             "Key Parameters": ss_params,
             "Suggested Action": "Sell (Bearish Reversal)"
         })
@@ -134,9 +150,7 @@ if ticker:
     try:
         # Fetch and Display Stock Data
         data = fetch_stock_data(ticker)
-        time_period = 365
-        fig = plot_candlestick_chart(data, time_period)
-        st.plotly_chart(fig)
+        annotations = []
 
         # Analyze Technical Patterns
         st.subheader("Technical Analysis Patterns")
@@ -145,12 +159,19 @@ if ticker:
             for pattern in patterns:
                 st.write(f"**Pattern:** {pattern['Pattern']}")
                 st.write(f"**Description:** {pattern['Description']}")
-                st.write(f"**Time Period:** {pattern['Time Period']}")
+                st.write(f"**Date:** {pattern['Date'].strftime('%Y-%m-%d')}")
                 st.write(f"**Key Parameters:** {pattern['Key Parameters']}")
                 st.write(f"**Suggested Action:** {pattern['Suggested Action']}")
                 st.write("---")
+                annotations.append({"Pattern": pattern["Pattern"], "Date": pattern["Date"], "Price": pattern["Price"]})
         else:
-            st.write("No technical patterns detected for the selected time period.")
+            st.write("No technical patterns detected for the past year.")
+
+        # Plot Candlestick Chart
+        st.subheader("Candlestick Chart")
+        zoom_period = st.slider("Select Time Period to Zoom (Days):", min_value=10, max_value=len(data), value=60)
+        fig = plot_candlestick_chart(data.iloc[-zoom_period:], annotations)
+        st.plotly_chart(fig)
 
         # Fetch and Display Financials
         st.subheader("Key Financials")
