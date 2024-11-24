@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
     data = stock.history(period="1y")  # Always fetch the last year of data
+    if data.empty:
+        raise ValueError("No data found for the ticker.")
     data.reset_index(inplace=True)  # Reset the index to use positional slicing
     return data
 
@@ -40,38 +42,47 @@ def detect_technical_patterns(data):
     low_prices = data['Low']
     open_prices = data['Open']
 
+    # Ensure there is enough data for patterns
+    if len(data) < 50:
+        return analysis  # Not enough data for analysis
+
     # Head and Shoulders
     def head_and_shoulders():
-        if len(close_prices) >= 50:
-            subset = high_prices.iloc[-50:]
-            middle_peak_index = subset.idxmax()
-            left_peak = max(subset[:middle_peak_index])
-            right_peak = max(subset[middle_peak_index + 1:])
-            middle_peak = high_prices[middle_peak_index]
-            if middle_peak > left_peak and middle_peak > right_peak:
-                return middle_peak_index, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
+        subset = high_prices.iloc[-50:]
+        if subset.empty:
+            return None, {}
+        middle_peak_index = subset.idxmax()
+        left_peak = max(subset[:middle_peak_index]) if not subset[:middle_peak_index].empty else None
+        right_peak = max(subset[middle_peak_index + 1:]) if not subset[middle_peak_index + 1:].empty else None
+        middle_peak = high_prices[middle_peak_index]
+        if left_peak and right_peak and middle_peak > left_peak and middle_peak > right_peak:
+            return middle_peak_index, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
         return None, {}
 
     # Double Top
     def double_top():
-        if len(close_prices) >= 50:
-            subset = high_prices.iloc[-50:]
-            recent_highs = subset.nlargest(2)
-            if len(recent_highs) == 2 and abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
-                return recent_highs.idxmax(), {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
+        subset = high_prices.iloc[-50:]
+        if subset.empty:
+            return None, {}
+        recent_highs = subset.nlargest(2)
+        if len(recent_highs) == 2 and abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
+            return recent_highs.idxmax(), {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
         return None, {}
 
     # Double Bottom
     def double_bottom():
-        if len(close_prices) >= 50:
-            subset = low_prices.iloc[-50:]
-            recent_lows = subset.nsmallest(2)
-            if len(recent_lows) == 2 and abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
-                return recent_lows.idxmax(), {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
+        subset = low_prices.iloc[-50:]
+        if subset.empty:
+            return None, {}
+        recent_lows = subset.nsmallest(2)
+        if len(recent_lows) == 2 and abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
+            return recent_lows.idxmax(), {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
         return None, {}
 
     # Shooting Star
     def shooting_star():
+        if len(close_prices) < 1:
+            return None, {}
         body = abs(close_prices.iloc[-1] - open_prices.iloc[-1])
         wick = high_prices.iloc[-1] - close_prices.iloc[-1]
         if wick > 2 * body and close_prices.iloc[-1] < open_prices.iloc[-1]:
