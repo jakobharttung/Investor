@@ -2,16 +2,16 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-import numpy as np
 
 def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
     data = stock.history(period="1y")  # Always fetch the last year of data
+    data.reset_index(inplace=True)  # Reset the index to use positional slicing
     return data
 
 def plot_candlestick_chart(data, annotations):
     fig = go.Figure(data=[go.Candlestick(
-        x=data.index,
+        x=data['Date'],
         open=data['Open'],
         high=data['High'],
         low=data['Low'],
@@ -43,9 +43,10 @@ def detect_technical_patterns(data):
     # Head and Shoulders
     def head_and_shoulders():
         if len(close_prices) >= 50:
-            middle_peak_index = high_prices[-50:].idxmax()
-            left_peak = max(high_prices[-50:middle_peak_index])
-            right_peak = max(high_prices[middle_peak_index:])
+            subset = high_prices.iloc[-50:]
+            middle_peak_index = subset.idxmax()
+            left_peak = max(subset[:middle_peak_index])
+            right_peak = max(subset[middle_peak_index + 1:])
             middle_peak = high_prices[middle_peak_index]
             if middle_peak > left_peak and middle_peak > right_peak:
                 return middle_peak_index, {"Middle Peak": middle_peak, "Left Peak": left_peak, "Right Peak": right_peak}
@@ -54,16 +55,18 @@ def detect_technical_patterns(data):
     # Double Top
     def double_top():
         if len(close_prices) >= 50:
-            recent_highs = high_prices[-50:].nlargest(2)
-            if abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
+            subset = high_prices.iloc[-50:]
+            recent_highs = subset.nlargest(2)
+            if len(recent_highs) == 2 and abs(recent_highs.iloc[0] - recent_highs.iloc[1]) / recent_highs.iloc[0] < 0.02:
                 return recent_highs.idxmax(), {"High 1": recent_highs.iloc[0], "High 2": recent_highs.iloc[1]}
         return None, {}
 
     # Double Bottom
     def double_bottom():
         if len(close_prices) >= 50:
-            recent_lows = low_prices[-50:].nsmallest(2)
-            if abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
+            subset = low_prices.iloc[-50:]
+            recent_lows = subset.nsmallest(2)
+            if len(recent_lows) == 2 and abs(recent_lows.iloc[0] - recent_lows.iloc[1]) / recent_lows.iloc[0] < 0.02:
                 return recent_lows.idxmax(), {"Low 1": recent_lows.iloc[0], "Low 2": recent_lows.iloc[1]}
         return None, {}
 
@@ -77,47 +80,36 @@ def detect_technical_patterns(data):
 
     # Detect patterns
     hs_date, hs_params = head_and_shoulders()
-    if hs_date:
+    if hs_date is not None:
         analysis.append({
             "Pattern": "Head and Shoulders",
             "Description": "A reversal pattern signaling the end of an uptrend.",
-            "Date": hs_date,
+            "Date": data['Date'][hs_date],
             "Price": hs_params["Middle Peak"],
             "Key Parameters": hs_params,
             "Suggested Action": "Sell (Bearish Reversal)"
         })
 
     dt_date, dt_params = double_top()
-    if dt_date:
+    if dt_date is not None:
         analysis.append({
             "Pattern": "Double Top",
             "Description": "A bearish reversal pattern formed after two peaks.",
-            "Date": dt_date,
+            "Date": data['Date'][dt_date],
             "Price": dt_params["High 1"],
             "Key Parameters": dt_params,
             "Suggested Action": "Sell (Bearish Reversal)"
         })
 
     db_date, db_params = double_bottom()
-    if db_date:
+    if db_date is not None:
         analysis.append({
             "Pattern": "Double Bottom",
             "Description": "A bullish reversal pattern formed after two troughs.",
-            "Date": db_date,
+            "Date": data['Date'][db_date],
             "Price": db_params["Low 1"],
             "Key Parameters": db_params,
             "Suggested Action": "Buy (Bullish Reversal)"
-        })
-
-    ss_date, ss_params = shooting_star()
-    if ss_date:
-        analysis.append({
-            "Pattern": "Shooting Star",
-            "Description": "A bearish reversal candlestick pattern.",
-            "Date": ss_date,
-            "Price": high_prices[ss_date],
-            "Key Parameters": ss_params,
-            "Suggested Action": "Sell (Bearish Reversal)"
         })
 
     return analysis
