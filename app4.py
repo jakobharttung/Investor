@@ -172,7 +172,7 @@ if ticker:
 
         # Plot Candlestick Chart
         st.subheader("Candlestick Chart")
-        zoom_period = st.slider("Select Time Period to Zoom (Days):", min_value=10, max_value=len(data), value=60)
+        zoom_period = len(data)
         fig = plot_candlestick_chart(data.iloc[-zoom_period:], annotations)
         st.plotly_chart(fig)
 
