@@ -6,7 +6,7 @@ import numpy as np
 
 def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
-    data = stock.history(period="max")
+    data = stock.history(period="1y")
     return data
 
 def plot_candlestick_chart(data, time_period):
