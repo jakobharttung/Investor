@@ -2,7 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
-import ta
+import numpy as np
 
 def fetch_stock_data(ticker):
     stock = yf.Ticker(ticker)
@@ -21,42 +21,63 @@ def plot_candlestick_chart(data, time_period):
     fig.update_layout(title="Candlestick Chart", xaxis_title="Date", yaxis_title="Price")
     return fig
 
-def analyze_technical_patterns(data):
+def detect_technical_patterns(data):
     analysis = []
-    indicators = {
-        "RSI": ta.momentum.RSIIndicator(data['Close']),
-        "MACD": ta.trend.MACD(data['Close']),
-        "Bollinger Bands": ta.volatility.BollingerBands(data['Close'])
-    }
 
-    # RSI
-    rsi = indicators["RSI"].rsi()
-    if rsi.iloc[-1] > 70:
-        analysis.append({"Pattern": "RSI", "Period": "Last 14 days", "Key Parameter": rsi.iloc[-1], "Strategy": "Sell (Overbought)"})
-    elif rsi.iloc[-1] < 30:
-        analysis.append({"Pattern": "RSI", "Period": "Last 14 days", "Key Parameter": rsi.iloc[-1], "Strategy": "Buy (Oversold)"})
+    # Head and Shoulders
+    def head_and_shoulders(data):
+        rolling_high = data['High'].rolling(window=20).max()
+        rolling_low = data['Low'].rolling(window=20).min()
+        if rolling_high.iloc[-1] < rolling_high.iloc[-2] > rolling_high.iloc[-3]:
+            return True
+        return False
 
-    # MACD
-    macd = indicators["MACD"].macd_diff()
-    if macd.iloc[-1] > 0:
-        analysis.append({"Pattern": "MACD", "Period": "Last 26 days", "Key Parameter": macd.iloc[-1], "Strategy": "Buy (Uptrend)"})
-    else:
-        analysis.append({"Pattern": "MACD", "Period": "Last 26 days", "Key Parameter": macd.iloc[-1], "Strategy": "Sell (Downtrend)"})
+    # Inverse Head and Shoulders
+    def inverse_head_and_shoulders(data):
+        rolling_low = data['Low'].rolling(window=20).min()
+        if rolling_low.iloc[-1] > rolling_low.iloc[-2] < rolling_low.iloc[-3]:
+            return True
+        return False
 
-    # Bollinger Bands
-    bb = indicators["Bollinger Bands"]
-    if data['Close'].iloc[-1] > bb.bollinger_hband().iloc[-1]:
-        analysis.append({"Pattern": "Bollinger Bands", "Period": "Last 20 days", "Key Parameter": data['Close'].iloc[-1], "Strategy": "Sell (Overbought)"})
-    elif data['Close'].iloc[-1] < bb.bollinger_lband().iloc[-1]:
-        analysis.append({"Pattern": "Bollinger Bands", "Period": "Last 20 days", "Key Parameter": data['Close'].iloc[-1], "Strategy": "Buy (Oversold)"})
-    
+    # Cup and Handle
+    def cup_and_handle(data):
+        prices = data['Close']
+        if len(prices) >= 30 and (prices.iloc[-1] > prices.iloc[-15]):
+            return True
+        return False
+
+    # Shooting Star
+    def shooting_star(data):
+        body = data['Close'] - data['Open']
+        wick = data['High'] - data['Close']
+        if body.iloc[-1] < wick.iloc[-1] and wick.iloc[-1] > 2 * abs(body.iloc[-1]):
+            return True
+        return False
+
+    # Analysis
+    if head_and_shoulders(data):
+        analysis.append({"Pattern": "Head and Shoulders", "Strategy": "Sell (Reversal pattern detected)"})
+    if inverse_head_and_shoulders(data):
+        analysis.append({"Pattern": "Inverse Head and Shoulders", "Strategy": "Buy (Bullish reversal pattern detected)"})
+    if cup_and_handle(data):
+        analysis.append({"Pattern": "Cup and Handle", "Strategy": "Buy (Continuation pattern detected)"})
+    if shooting_star(data):
+        analysis.append({"Pattern": "Shooting Star", "Strategy": "Sell (Bearish reversal pattern detected)"})
+
+    # Add more patterns as needed
     return analysis
 
 def fetch_financials(ticker):
     stock = yf.Ticker(ticker)
+    try:
+        revenue = stock.financials.loc["Total Revenue"].tail(3)
+        net_income = stock.financials.loc["Net Income"].tail(3)
+    except:
+        revenue, net_income = None, None
+
     financials = {
-        "Revenue (Last 3 Years)": stock.financials.loc["Total Revenue"].tail(3),
-        "Net Income (Last 3 Years)": stock.financials.loc["Net Income"].tail(3),
+        "Revenue (Last 3 Years)": revenue.apply(lambda x: f"${x:,.0f}").to_dict() if revenue is not None else "Data not available",
+        "Net Income (Last 3 Years)": net_income.apply(lambda x: f"${x:,.0f}").to_dict() if net_income is not None else "Data not available",
         "P/E": stock.info.get("trailingPE", "N/A"),
         "Forward P/E": stock.info.get("forwardPE", "N/A"),
         "EPS": stock.info.get("trailingEps", "N/A"),
@@ -80,21 +101,22 @@ if ticker:
 
         # Analyze Technical Patterns
         st.subheader("Technical Analysis Patterns")
-        patterns = analyze_technical_patterns(data)
-        for pattern in patterns:
-            st.write(f"**Pattern:** {pattern['Pattern']}")
-            st.write(f"**Period:** {pattern['Period']}")
-            st.write(f"**Key Parameter:** {pattern['Key Parameter']:.2f}")
-            st.write(f"**Suggested Strategy:** {pattern['Strategy']}")
-            st.write("---")
+        patterns = detect_technical_patterns(data)
+        if patterns:
+            for pattern in patterns:
+                st.write(f"**Pattern:** {pattern['Pattern']}")
+                st.write(f"**Suggested Strategy:** {pattern['Strategy']}")
+                st.write("---")
+        else:
+            st.write("No technical patterns detected for the selected time period.")
 
         # Fetch and Display Financials
         st.subheader("Key Financials")
         financials = fetch_financials(ticker)
         for key, value in financials.items():
-            if isinstance(value, pd.Series):
+            if isinstance(value, dict):
                 st.write(f"**{key}:**")
-                st.write(value.to_dict())
+                st.write({str(k): v for k, v in value.items()})
             else:
                 st.write(f"**{key}:** {value}")
     except Exception as e:
