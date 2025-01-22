@@ -10,3 +10,4 @@ beautifulsoup4
 pygwalker
 setuptools
 ta
+pandas_ta
